@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Microsoft.Extensions.Options;
 using WelcomeApp.Api.Data;
 using WelcomeApp.Api.Models;
 using WelcomeApp.Api.Services;
@@ -69,6 +70,15 @@ builder.Services.AddAuthorization();
 
 // Application services
 builder.Services.AddScoped<IUserRegistrationService, UserRegistrationService>();
+
+// Chat
+builder.Services.Configure<ChatOptions>(builder.Configuration.GetSection("Chat"));
+builder.Services.AddHttpClient<IChatService, ChatService>((sp, client) =>
+{
+    var opts = sp.GetRequiredService<IOptions<ChatOptions>>().Value;
+    client.BaseAddress = new Uri(opts.Endpoint.TrimEnd('/') + "/");
+    client.Timeout = TimeSpan.FromMinutes(2);
+});
 
 // CORS — JWT in Authorization header, so no AllowCredentials.
 const string SpaCorsPolicy = "spa";

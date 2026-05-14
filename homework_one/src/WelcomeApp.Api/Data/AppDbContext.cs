@@ -14,6 +14,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<WorkspaceMember> WorkspaceMembers => Set<WorkspaceMember>();
     public DbSet<Draft> Drafts => Set<Draft>();
     public DbSet<Invite> Invites => Set<Invite>();
+    public DbSet<Conversation> Conversations => Set<Conversation>();
+    public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -87,6 +89,36 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
                 .WithMany()
                 .HasForeignKey(i => i.WorkspaceId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<Conversation>(entity =>
+        {
+            entity.HasKey(c => c.Id);
+            entity.Property(c => c.UserId).IsRequired();
+            entity.Property(c => c.Title).IsRequired().HasMaxLength(256);
+
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(c => c.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(c => new { c.UserId, c.UpdatedAt })
+                .IsDescending(false, true);
+        });
+
+        builder.Entity<ChatMessage>(entity =>
+        {
+            entity.HasKey(m => m.Id);
+            entity.Property(m => m.ConversationId).IsRequired();
+            entity.Property(m => m.Role).IsRequired().HasMaxLength(16);
+            entity.Property(m => m.Content).IsRequired().HasColumnType("nvarchar(max)");
+
+            entity.HasOne(m => m.Conversation)
+                .WithMany(c => c.Messages)
+                .HasForeignKey(m => m.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(m => new { m.ConversationId, m.CreatedAt });
         });
     }
 }

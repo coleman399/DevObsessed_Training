@@ -77,3 +77,37 @@ Accept: application/json
 GET {{host}}/api/stats
 Authorization: Bearer {{login.response.body.token}}
 Accept: application/json
+
+### Chat: POST conversation — 201 ConversationDetailDto with Nova greeting
+# @name newConv
+POST {{host}}/api/chat/conversations
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+### Chat: GET conversations list — 200 [] (empty until user sends first message)
+GET {{host}}/api/chat/conversations
+Authorization: Bearer {{login.response.body.token}}
+Accept: application/json
+
+### Chat: GET conversation by id — 200 ConversationDetailDto with messages
+GET {{host}}/api/chat/conversations/{{newConv.response.body.id}}
+Authorization: Bearer {{login.response.body.token}}
+Accept: application/json
+
+### Chat: PATCH title — 204
+PATCH {{host}}/api/chat/conversations/{{newConv.response.body.id}}
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "title": "My first chat"
+}
+
+### Chat: POST message — SSE stream of data:{token} frames terminated by data:[DONE]
+POST {{host}}/api/chat/conversations/{{newConv.response.body.id}}/messages
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "message": "What's my workspace called?"
+}

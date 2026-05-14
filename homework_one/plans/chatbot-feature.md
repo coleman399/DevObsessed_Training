@@ -18,6 +18,59 @@ The Welcome screen currently shows static stats. The user — a student in DevOb
 
 ---
 
+## Implementation phases
+
+Ships in four sequential phases — backend-first, frontend-second, polish-last. Each phase ends with green tests and a clear verification step. Phases 1 and 2 are independently mergeable PRs.
+
+### Phase 0 — GitHub Models spike (~30 min, pre-work)
+
+Before writing any code, verify the API behaves as documented. Issue a PAT with `models:read`, then:
+
+```bash
+curl -N -H "Authorization: Bearer <PAT>" \
+  -H "Content-Type: application/json" \
+  --data '{"model":"openai/gpt-4.1-mini","messages":[{"role":"user","content":"hello"}],"stream":true}' \
+  https://models.github.ai/inference/chat/completions
+```
+
+Confirm: SSE frames arrive as `data: {"choices":[{"delta":{"content":"..."}}]}\n\n` and terminate with `data: [DONE]`. Confirm the URL is current — it has shifted historically. Findings lock `appsettings.json` defaults and the `ChatService` SSE parser shape. **Don't skip:** if the frame shape has drifted, Phase 1's parser tests will be testing a fiction.
+
+### Phase 1 — Backend complete (~4–5h)
+
+**Goal:** all five `/api/chat/*` routes work, SSE streams real Nova replies, tests are green. No UI consumer yet — the `.http` file and the test suite are the reviewable consumer.
+
+Scope: entities + migration, `ChatOptions` + `IChatService` + `ChatService` (all five methods), `ChatController` (all five routes incl. PATCH and SSE with `try/catch/finally`), all DTOs, `HttpClient` registration, `appsettings.json` `Chat:` section, `WelcomeApp.Api.http` sample requests for all five routes, `ChatServiceTests` + `ChatControllerTests` (full suite including empty-stub filter, PATCH happy/sad, SSE frame format).
+
+**Verification:** `dotnet test` all green + exercise all five routes live in `WelcomeApp.Api.http` (register user → POST conversation → stream a message → GET list → PATCH title → verify cross-user 404s).
+
+### Phase 2 — Frontend complete (~3–4h)
+
+**Goal:** UI consumes the Phase 1 endpoints. Full desktop live smoke passes.
+
+Scope: `lib/types.ts` additions, `lib/chat.ts` (streamChat + relativeTime + deriveTitle + API wrappers), `useChat.tsx` (full stub-materialization flow), five new components (`ChatHeader`, `MessageList`, `MessageBubble`, `ChatInput`, `RecentConversationsList`) + `TodayPanel` extraction, `styles/chat.css` (design's styles, px → rem), `WelcomePage.tsx` grid restructure, MSW handlers for all five routes, all frontend tests.
+
+**Verification:** `npm test` all green + full live smoke from the [Verification](#verification) section below (desktop only; mobile is Phase 3).
+
+### Phase 3 — Mobile + polish + docs (~1–2h)
+
+**Goal:** production-ready on mobile; runbook and README complete.
+
+Scope: `@media (max-width: 40rem)` breakpoint (single-column collapse, padding scale, thread `max-height` shrink), iOS Safari fixes (`1rem` textarea font-size, `100dvh`), touch targets ≥ `2.75rem`, `:focus-visible` companions, `prefers-reduced-motion` gating on all animations, runbook "Chat setup" section (PAT, user-secrets, migration commands, history sliding-window note), README and `implementation-plan.md` updates, E2E TODO in runbook.
+
+**Verification:** DevTools mobile emulation at 375×667 — grid collapses, no horizontal scroll, no iOS auto-zoom; re-run desktop smoke to confirm no regressions.
+
+### Critical decisions locked in before Phase 1
+
+These prevent Phase 2 from requiring backend changes:
+
+1. **`StartConversationAsync` persists Nova's greeting** as the first assistant message. Phase 2's UI just renders it — no client-side seed.
+2. **`StreamReplyAsync` derives the title server-side** on first user message. Phase 2 never calls `PATCH` — it re-fetches the list and sees the new title.
+3. **`GET /conversations` filters empty stubs server-side** (`WHERE EXISTS(... Role='user')`). Phase 2 also filters locally for its own in-memory stubs, but the server is already clean.
+4. **`POST /conversations` returns `ConversationDetailDto`** (full convo + seeded greeting), not just `{id}`. Phase 2 avoids a follow-up GET on every stub materialization.
+5. **PATCH endpoint ships in Phase 1** even though Phase 2 has no editing UI for it. Future server-side summarization will use it; adding it later would require a separate backend PR.
+
+---
+
 ## Recommended approach
 
 ### Backend — `homework_one/src/WelcomeApp.Api/`
@@ -320,4 +373,13 @@ Until the designer addresses these, the implementation will follow the rules in 
 
 ## Effort estimate
 
-~7–9 focused hours. Breakdown: backend entities + migration (30 min), `ChatService` (5 methods incl. `GetConversationAsync`, `UpdateTitleAsync`, server-side title derivation) + SSE plumbing (2 h), `ChatController` (5 routes incl. PATCH) + backend tests (incl. empty-stub filter + PATCH coverage) (1.5 h), frontend `useChat` with **stub-materialization** flow + SSE parser + `relativeTime`/`deriveTitle` + lib tests (2 h), chat components (`ChatHeader`, `MessageList`, `MessageBubble`, `ChatInput`, `RecentConversationsList`) + styles ported to rem (2 h), `WelcomePage` grid restructure + mobile breakpoint + integration polish + runbook/README updates (1 h).
+~7–9 focused hours across three phases:
+
+| Phase | Scope | Estimate |
+| --- | --- | --- |
+| 0 — API spike | Curl GitHub Models, lock URL + frame shape | ~30 min |
+| 1 — Backend | Entities, migration, service (5 methods), controller (5 routes), DTOs, tests | ~4–5 h |
+| 2 — Frontend | lib/chat, useChat (stub-materialization), 5 components, styles, WelcomePage restructure, MSW, tests | ~3–4 h |
+| 3 — Polish | Mobile breakpoint, iOS fixes, reduced-motion, runbook, README | ~1–2 h |
+
+Phases 1 and 2 are independently mergeable. Phase 3 has no bearing on Phase 1 or 2 correctness — it can slip without blocking a working feature.
