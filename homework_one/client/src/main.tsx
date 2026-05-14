@@ -5,6 +5,7 @@ import './styles/global.css';
 import './styles/background.css';
 import './styles/auth.css';
 import './styles/welcome.css';
+import './styles/chat.css';
 import App from './App';
 import { AuthProvider } from './hooks/useAuth';
 

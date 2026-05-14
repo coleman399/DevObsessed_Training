@@ -57,14 +57,15 @@
 
 .w-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 3.75rem;
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr) 17.5rem;
+  gap: 3rem;
+  align-items: start;
   width: 100%;
   max-width: 67.5rem;
   min-height: 100vh;
+  min-height: 100dvh;
   margin: 0 auto;
-  padding: 6rem 2.25rem 4rem;
+  padding: 5rem 3.75rem 3rem;
 }
 
 .w-left {
@@ -149,8 +150,9 @@
 }
 
 .w-right {
-  border-left: 1px solid var(--border-default);
-  padding-left: 3rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  padding-left: 2rem;
+  margin-top: 3rem;
   opacity: 0;
   animation: wReveal 1s ease 1.3s forwards;
 }
