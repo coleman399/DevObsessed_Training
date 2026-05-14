@@ -6,6 +6,8 @@ A dark-mode account creation / sign-in screen that toggles between **Sign up** a
 
 This is **variant C ("Orbs")** of three concepts explored during design. The HTML prototype in this bundle shows the final selected direction.
 
+> **➕ Chat addendum:** The welcome screen also hosts a Nova chatbot. See **`02_CHAT_ADDENDUM.md`** for the chat surface spec (variant A — "Chat below greeting"). Implement the chat **after** the base welcome screen — same screen, additive.
+
 ---
 
 ## About the Design Files
