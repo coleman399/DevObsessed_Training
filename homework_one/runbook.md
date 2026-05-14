@@ -130,7 +130,7 @@ npm run test:watch # watch mode
 
 MSW intercepts all fetches — no network or backend required.
 
-### End-to-end (Playwright — 14 tests)
+### End-to-end (Playwright — 22 tests)
 
 ```powershell
 cd client

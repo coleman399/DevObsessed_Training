@@ -93,13 +93,13 @@ Browse [http://localhost:5173](http://localhost:5173).
 
 ## Testing
 
-149 tests across three runners. All must be green before shipping:
+157 tests across three runners. All must be green before shipping:
 
 ```powershell
 dotnet test homework_one/DevObsessed_Training.sln    # 56 backend (xUnit)
 cd homework_one/client
 npm test                                              # 79 frontend (Vitest)
-npm run e2e                                           # 14 end-to-end (Playwright)
+npm run e2e                                           # 22 end-to-end (Playwright)
 ```
 
 See [runbook.md](runbook.md#running-tests) for project-level and watch-mode variants.
