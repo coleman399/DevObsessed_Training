@@ -8,6 +8,7 @@
   flex-direction: column;
   gap: 0.5rem;
   margin-top: 1.75rem;
+  width: 100%;
   opacity: 0;
   animation: wReveal 1s ease 1.5s both;
 }
@@ -82,6 +83,7 @@
   flex: 1;
   overflow-y: auto;
   max-height: 15rem;
+  transition: max-height 0.55s cubic-bezier(0.4, 0, 0.2, 1);
   padding: 0.25rem 0.25rem 0.875rem;
   display: flex;
   flex-direction: column;
@@ -360,6 +362,12 @@
   letter-spacing: 0.04em;
   color: rgba(232, 236, 242, 0.4);
   margin-top: 0.125rem;
+}
+
+/* ── Expanded state (header hidden) ─────────────────────────────────────── */
+
+.wc-chat.active .wc-thread {
+  max-height: min(62vh, 38rem);
 }
 
 /* ── Mobile breakpoint ───────────────────────────────────────────────────── */

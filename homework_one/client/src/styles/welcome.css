@@ -155,6 +155,31 @@
   color: rgba(232, 236, 242, 0.75);
 }
 
+/* ── Header collapse animation ───────────────────────────────────────────── */
+
+.w-header-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  /* Height collapses after opacity starts fading */
+  transition: grid-template-rows 0.55s cubic-bezier(0.4, 0, 0.2, 1) 0.05s;
+  width: 100%;
+}
+
+.w-header-collapse > div {
+  overflow: hidden;
+  min-height: 0;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.w-header-collapse.collapsed {
+  grid-template-rows: 0fr;
+}
+
+.w-header-collapse.collapsed > div {
+  opacity: 0;
+}
+
 .w-right {
   border-left: 1px solid rgba(255, 255, 255, 0.08);
   padding-left: 2rem;

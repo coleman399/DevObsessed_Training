@@ -106,15 +106,13 @@ export function AuthCard({
   return (
     <div className={`auth-card${leaving ? ' leaving' : ''}`}>
       <aside className="left">
-        <div>
-          <div className="brand">
-            <span className="brand-mark" aria-hidden="true" />
-            <span className="brand-name">Lumen</span>
-          </div>
-          <p className="quote">
-            A quieter place to <em>think, plan, and ship.</em>
-          </p>
+        <div className="brand">
+          <span className="brand-mark" aria-hidden="true" />
+          <span className="brand-name">Lumen</span>
         </div>
+        <p className="quote">
+          A quieter place to <em>think, plan, and ship.</em>
+        </p>
         <span className="meta">v2.4 · build 8821</span>
       </aside>
       <section className="right">{body}</section>
