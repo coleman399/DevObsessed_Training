@@ -1,0 +1,79 @@
+/* Orbs background (variant C). Ported from __BG_STYLE in design_handoff_dark_auth/backgrounds.jsx.
+   Mobile (≤ 40rem) drops the two largest orbs and shrinks the outer bloom to halve GPU cost. */
+
+.bg-root {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(120% 90% at 50% 0%, #10151c 0%, #06080b 60%, #04060a 100%);
+}
+
+.bg-orbs .vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(60% 80% at 50% 50%, transparent 0%, rgba(0, 0, 0, 0.55) 100%),
+    radial-gradient(120% 60% at 50% 110%, var(--c1) 0%, transparent 55%),
+    radial-gradient(100% 60% at 50% -10%, var(--c2) 0%, transparent 50%);
+}
+
+.bg-orbs .grid {
+  position: absolute;
+  inset: 0;
+  opacity: 0.08;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.4) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.4) 1px, transparent 1px);
+  background-size: 4rem 4rem;
+  mask-image: radial-gradient(60% 50% at 50% 50%, #000, transparent);
+  -webkit-mask-image: radial-gradient(60% 50% at 50% 50%, #000, transparent);
+}
+
+.bg-orbs .orb {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.95), var(--c3) 35%, transparent 70%);
+  box-shadow:
+    0 0 3.75rem var(--c3),
+    0 0 7.5rem var(--c3);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.bg-orbs .orb.welcome-only {
+  display: none;
+}
+
+.bg-orbs[data-state='welcome'] .orb.welcome-only {
+  display: block;
+}
+
+@keyframes orbRise {
+  0% { transform: translateY(8%) translateX(0); opacity: 0; }
+  20% { opacity: 0.9; }
+  100% { transform: translateY(-110%) translateX(var(--dx, 0)); opacity: 0; }
+}
+
+@media (max-width: 40rem) {
+  /* Drop the two largest always-on orbs (third + fifth — 200px + 160px equivalents)
+     and shrink the outer glow to keep mid-range phones drawing under 60fps. */
+  .bg-orbs .orb:nth-of-type(5),
+  .bg-orbs .orb:nth-of-type(7) {
+    display: none;
+  }
+
+  .bg-orbs .orb {
+    box-shadow:
+      0 0 3.75rem var(--c3),
+      0 0 3.75rem var(--c3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bg-orbs .orb {
+    animation: none !important;
+    opacity: 0.5;
+  }
+}
