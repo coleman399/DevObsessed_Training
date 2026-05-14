@@ -1,0 +1,79 @@
+@host = http://localhost:5000
+@email = jane.doe+1@example.com
+@password = pass1234
+
+### Liveness probe
+GET {{host}}/health
+Accept: application/json
+
+### Register — 200 + AuthResponse
+POST {{host}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Jane Doe",
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### Register again with same email — 409 ProblemDetails ("Email already registered.")
+POST {{host}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Jane Two",
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### Register with same email cased differently — also 409 (NormalizedEmail uniqueness)
+POST {{host}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Jane Cased",
+  "email": "JANE.DOE+1@example.com",
+  "password": "{{password}}"
+}
+
+### Login — 200 + AuthResponse
+# @name login
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### Login with wrong password — 401 generic
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "wrong-password"
+}
+
+### Login with unknown email — 401 generic (no enumeration)
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "nobody@example.com",
+  "password": "{{password}}"
+}
+
+### Me — 200 with bearer
+GET {{host}}/api/me
+Authorization: Bearer {{login.response.body.token}}
+Accept: application/json
+
+### Me — 401 without bearer
+GET {{host}}/api/me
+Accept: application/json
+
+### Stats — 200 with bearer (counts 0/0, workspaceName "{first}-hq", memberCount 1, plan "Free")
+GET {{host}}/api/stats
+Authorization: Bearer {{login.response.body.token}}
+Accept: application/json

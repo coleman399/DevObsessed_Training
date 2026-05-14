@@ -1,0 +1,72 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+.idea/
+*.swp
+*.pidb
+*.userprefs
+
+# Build / publish
+publish/
+artifacts/
+**/Properties/launchSettings.local.json
+
+# Test results
+TestResults/
+*.coverage
+*.coveragexml
+coverage/
+*.lcov
+
+# Rider
+.idea/
+
+# VS Code
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# User secrets (the values live in %APPDATA%\Microsoft\UserSecrets\<id>\secrets.json, but ignore any local fallbacks)
+secrets.json
+*.secrets.json
+
+# Node / Vite / frontend
+node_modules/
+dist/
+dist-ssr/
+.vite/
+.parcel-cache/
+*.tsbuildinfo
+
+# Playwright
+playwright-report/
+test-results/
+playwright/.cache/
+
+# Env files
+.env
+.env.local
+.env.*.local
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# EF Core generated files we don't need to track
+*.dbmdl
+*.jfm
