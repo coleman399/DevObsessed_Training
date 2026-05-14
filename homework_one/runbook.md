@@ -30,7 +30,9 @@ dotnet ef --version
 
 Run these once per machine. All paths below are relative to this `homework_one/` folder.
 
-### 1. Set the JWT signing key
+### 1. Set the JWT signing key and GitHub Models API key
+
+**JWT signing key** — the API refuses to start without it:
 
 The API refuses to start without `Jwt:Key` in user-secrets (the throw at `Program.cs` line 36 points at the missing setup). Pick any 32+ character base64 string:
 
@@ -40,6 +42,18 @@ dotnet user-secrets set "Jwt:Key" "<32+ random chars — e.g. openssl rand -base
 ```
 
 The value lives in `%APPDATA%\Microsoft\UserSecrets\<UserSecretsId>\secrets.json`, outside the repo. The xUnit and Playwright suites inject their own throwaway keys, so this step only affects the live dev API (`dotnet run` from the API project).
+
+**GitHub Models API key (Nova chatbot)** — the chat feature calls `https://models.github.ai/inference`. Without this key the API starts fine but every SSE stream returns an error frame to the frontend.
+
+1. Go to [github.com/settings/tokens](https://github.com/settings/tokens) → **Fine-grained tokens** → **Generate new token**
+2. Under **Permissions → Account permissions → Models** → set to **Read-only**
+3. Generate, copy the token, then from `src/WelcomeApp.Api/`:
+
+```powershell
+dotnet user-secrets set "Chat:ApiKey" "<the-PAT>"
+```
+
+> If the Models permission is not visible, a classic PAT with **no scopes** also works — GitHub Models only requires a valid GitHub identity.
 
 ### 2. Migrate the three databases
 
@@ -96,7 +110,7 @@ Open [http://localhost:5173](http://localhost:5173) in a browser. The Vite dev s
 
 Three runners cover different layers. Each can run independently of the others, but all three together is the canonical "green" sweep.
 
-### Backend (xUnit — 37 tests)
+### Backend (xUnit — 56 tests)
 
 From repo root:
 
@@ -106,7 +120,7 @@ dotnet test homework_one/DevObsessed_Training.sln
 
 `ApiFactory` overrides connection string + JWT key in-process, so user-secrets are not required for tests. See [tests/WelcomeApp.Api.Tests/README.md](tests/WelcomeApp.Api.Tests/README.md) for the per-test reset strategy (Respawn keeps `__EFMigrationsHistory` intact).
 
-### Frontend unit / component (Vitest — 51 tests)
+### Frontend unit / component (Vitest — 79 tests)
 
 ```powershell
 cd client
@@ -129,11 +143,37 @@ npm run e2e:report           # open the last HTML report
 
 Playwright auto-starts both the API (against `sqldb-welcomeapp-e2e`) and the Vite dev server via its `webServer` config. The throwaway e2e JWT key is in [client/playwright.config.ts](client/playwright.config.ts); never reuse it elsewhere.
 
+### Chat (Vitest — included in frontend count above)
+
+The chat unit and integration tests use MSW to mock all five `/api/chat/*` routes and a `FakeHttpMessageHandler` to mock the GitHub Models SSE response. No real network or API key required.
+
+> **E2E TODO:** Chat is excluded from Playwright tests in v1. The real `models.github.ai` endpoint is non-deterministic and rate-limited. To add coverage later, introduce a server-side stub flag (e.g. `CHAT_STUB=true` env var) that makes `ChatService` return canned SSE responses instead of calling GitHub Models.
+
 ### Everything in one shot
 
 ```powershell
 dotnet test homework_one/DevObsessed_Training.sln && cd homework_one/client && npm test && npm run e2e
 ```
+
+---
+
+## Chat — Nova chatbot
+
+### History sliding window
+
+Conversations use a **20-message sliding window** (`Chat:MaxHistoryMessages` in `appsettings.json`). When a thread exceeds 20 user+assistant turns the oldest turns silently fall off — the model loses early context with no warning to the user. This is a known v1 limitation; server-side summarization is out of scope.
+
+### Verifying the GitHub Models endpoint
+
+The endpoint URL has shifted historically (`models.inference.ai.azure.com` → `models.github.ai/inference`). If streaming stops working, confirm the current URL from the [GitHub Models docs](https://docs.github.com/rest/models) and update `Chat:Endpoint` in `appsettings.json`. Quick curl to verify:
+
+```powershell
+$PAT = "YOUR_TOKEN_HERE"
+[System.IO.File]::WriteAllText("$env:TEMP\ghm.json", '{"model":"openai/gpt-4.1-mini","messages":[{"role":"user","content":"hello"}],"stream":true}')
+curl.exe -N --ssl-no-revoke -H "Authorization: Bearer $PAT" -H "Content-Type: application/json" --data "@$env:TEMP\ghm.json" https://models.github.ai/inference/chat/completions
+```
+
+Expected: `data: {"choices":[{"delta":{"content":"..."}}]}` frames ending with `data: [DONE]`.
 
 ---
 
@@ -200,19 +240,19 @@ homework_one/
 ├─ .gitignore / .editorconfig
 ├─ src/WelcomeApp.Api/             # ASP.NET Core 8 Web API
 │  ├─ Program.cs                   # pipeline: CORS → security headers → auth → controllers
-│  ├─ Controllers/{Auth,Me,Stats}Controller.cs
-│  ├─ Services/{JwtTokenService,UserRegistrationService,WorkspaceNameHelper,IClock}.cs
-│  ├─ Models/                      # ApplicationUser, Workspace, WorkspaceMember, Draft, Invite
+│  ├─ Controllers/{Auth,Me,Stats,Chat}Controller.cs
+│  ├─ Services/{JwtTokenService,UserRegistrationService,WorkspaceNameHelper,IClock,ChatService,ChatOptions}.cs
+│  ├─ Models/                      # ApplicationUser, Workspace, WorkspaceMember, Draft, Invite, Conversation, ChatMessage
 │  ├─ Data/{AppDbContext,DesignTimeDbContextFactory}.cs
 │  ├─ Migrations/
 │  └─ WelcomeApp.Api.http          # REST Client smoke requests
 ├─ tests/WelcomeApp.Api.Tests/     # xUnit (37 tests; Respawn + collection fixture)
 ├─ client/                         # Vite + React 19 + TypeScript
 │  ├─ src/
-│  │  ├─ components/{auth,welcome,backgrounds,icons}/
-│  │  ├─ hooks/useAuth.tsx
-│  │  ├─ lib/{api,auth,types,validation}.ts
-│  │  ├─ styles/                   # tokens, global, auth, welcome, background (all in rem)
+│  │  ├─ components/{auth,welcome,chat,backgrounds,icons}/
+│  │  ├─ hooks/{useAuth,useChat}.tsx
+│  │  ├─ lib/{api,auth,chat,types,validation}.ts
+│  │  ├─ styles/                   # tokens, global, auth, welcome, chat, background (all in rem)
 │  │  ├─ test/{setup,handlers}.ts  # MSW server + default handlers
 │  │  └─ App.tsx + main.tsx
 │  ├─ e2e/                         # Playwright specs (14 tests)
@@ -235,3 +275,8 @@ homework_one/
 | `GET` | `/api/me` | Bearer | Returns `{ id, name, email, createdAt }` |
 | `GET` | `/api/stats` | Bearer | Returns `{ drafts, pendingInvites, workspaceName, memberCount, plan }` |
 | `GET` | `/swagger` | none (dev only) | Interactive API explorer |
+| `GET` | `/api/chat/conversations` | Bearer | Last 20 conversations with user turns (empty stubs excluded) |
+| `POST` | `/api/chat/conversations` | Bearer | Create conversation; returns 201 + `ConversationDetailDto` with Nova greeting |
+| `GET` | `/api/chat/conversations/:id` | Bearer | Full conversation + ordered messages; 404 if not owned |
+| `PATCH` | `/api/chat/conversations/:id` | Bearer | Update title; 204 on success, 404 if not owned |
+| `POST` | `/api/chat/conversations/:id/messages` | Bearer | SSE stream — `data: {"token":"..."}` frames, terminated by `data: [DONE]` |

@@ -11,6 +11,7 @@ The visual source of truth is [`design_handoff_dark_auth/Welcome Flow.html`](des
 - **Sign up** — name, email, password. Passwords are PBKDF2-hashed via ASP.NET Core Identity. A personal workspace + membership row are created in a single transaction.
 - **Sign in** — email + password. Generic 401 on failure (no account enumeration); an equalising dummy-hash narrows the timing side-channel.
 - **Welcome screen** — staggered title reveal, animated time-greeting clock, real "Today, in your space" stats fetched from `/api/stats` (drafts, pending invites, workspace name, plan).
+- **Nova chatbot** — streaming AI assistant embedded in the welcome screen. Multi-turn conversations with per-user history, "Recent conversations" rail, and lazy stub materialisation. Backed by GitHub Models (GPT-4.1-mini via OpenAI-compatible SSE). Server-side system prompt personalises Nova with the user's first name, workspace name, plan, and live stats.
 - **Remember me** — checked → token persists in `localStorage` across sessions; unchecked → `sessionStorage` only.
 
 ---
@@ -36,8 +37,10 @@ The visual source of truth is [`design_handoff_dark_auth/Welcome Flow.html`](des
 Browser (Vite SPA :5173) ──/api/*──► Vite proxy ──► ASP.NET Core API :5000 ──► SQL Server LocalDB
                                                        │
                                                        ├─ AuthController     POST /api/auth/{register,login}
-                                                       ├─ MeController       GET  /api/me        [Authorize]
-                                                       ├─ StatsController    GET  /api/stats     [Authorize]
+                                                       ├─ MeController       GET  /api/me            [Authorize]
+                                                       ├─ StatsController    GET  /api/stats         [Authorize]
+                                                       ├─ ChatController     /api/chat/*  SSE stream [Authorize]
+                                                       │    └─ ChatService ──► GitHub Models (GPT-4.1-mini)
                                                        └─ GET  /health (anon, for Playwright readiness)
 ```
 
@@ -58,12 +61,12 @@ homework_one/
 ├─ DevObsessed_Training.sln
 ├─ global.json                       # pins SDK to 8.0.x
 ├─ src/WelcomeApp.Api/               # ASP.NET Core 8 Web API
-├─ tests/WelcomeApp.Api.Tests/       # xUnit (37 tests)
+├─ tests/WelcomeApp.Api.Tests/       # xUnit (56 tests)
 ├─ client/                           # React/Vite SPA
 │  ├─ src/                           # components, hooks, lib, styles, MSW handlers
 │  └─ e2e/                           # Playwright specs (14 tests)
-├─ design_handoff_dark_auth/         # Source-of-truth visual reference (unchanged)
-└─ plans/implementation-plan.md      # Full design spec — read this before changing scope
+├─ designs/design_handoff_dark_auth/ # Source-of-truth visual reference (unchanged)
+└─ plans/                            # implementation-plan.md + chatbot-feature.md
 ```
 
 ---
@@ -90,12 +93,12 @@ Browse [http://localhost:5173](http://localhost:5173).
 
 ## Testing
 
-102 tests across three runners. All must be green before shipping:
+149 tests across three runners. All must be green before shipping:
 
 ```powershell
-dotnet test homework_one/DevObsessed_Training.sln    # 37 backend (xUnit)
+dotnet test homework_one/DevObsessed_Training.sln    # 56 backend (xUnit)
 cd homework_one/client
-npm test                                              # 51 frontend (Vitest)
+npm test                                              # 79 frontend (Vitest)
 npm run e2e                                           # 14 end-to-end (Playwright)
 ```
 
@@ -114,6 +117,9 @@ These are spelled out at length in [plans/implementation-plan.md](plans/implemen
 - **`MapInboundClaims = false`** on JwtBearer — otherwise .NET 8's `JsonWebTokenHandler` rewrites `sub` → `ClaimTypes.NameIdentifier` and `MeController` can't read the user id by raw claim name.
 - **`WorkspaceMember.UserId` FK uses `Restrict`, not `Cascade`.** Required to break the multi-cascade path SQL Server otherwise rejects at migration time.
 - **`EmailIndex` promoted to unique.** Identity's default index on `NormalizedEmail` is non-unique; we override it so duplicate-email is rejected at the DB layer too.
+- **Nova chatbot uses GitHub Models (OpenAI-compatible SSE) via `IHttpClientFactory`.** The `Authorization: Bearer <PAT>` header is added per-request inside `ChatService` so a key rotation doesn't require restarting the host. `IServiceScopeFactory` manages `AppDbContext` lifetimes explicitly so the context is never held open across `yield return` in the `IAsyncEnumerable` SSE loop.
+- **Chat history uses a 20-message sliding window.** The oldest turns silently drop when a conversation exceeds the limit. Summarization for long context windows is out of scope for v1.
+- **Stub-materialization pattern in `useChat`.** The frontend prepends a local stub conversation on mount (not POSTed yet). The stub is materialized via `POST /api/chat/conversations` only when the user sends their first message — avoiding orphan server records from abandoned `+ New` clicks.
 - **CSS uses `rem`, not `px`, with `@media (max-width: 40rem)` and `@media (prefers-reduced-motion: reduce)`** breakpoints. The desktop-first px-heavy prototype was ported value-for-value through a `/16` divide; user font-size scaling now works.
 - **Three separate LocalDB databases.** Isolating dev / tests / e2e prevents one suite's data from leaking into another and gives each its own reset strategy.
 

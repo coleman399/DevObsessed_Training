@@ -55,6 +55,12 @@
   background: var(--surface-hover);
 }
 
+.w-signout:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--accent), transparent 50%);
+  outline-offset: 2px;
+  color: #fff;
+}
+
 .w-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 17.5rem;
@@ -230,7 +236,11 @@
   .w-grid {
     grid-template-columns: 1fr;
     gap: 2.5rem;
-    padding: 5rem 1rem 3rem;
+    padding: 4rem 1.25rem 1.5rem;
+  }
+
+  .w-title {
+    font-size: clamp(2.5rem, 9vw, 5.5rem);
   }
 
   .w-right {
@@ -238,6 +248,7 @@
     border-top: 1px solid var(--border-default);
     padding-left: 0;
     padding-top: 1.5rem;
+    margin-top: 0;
   }
 
   .w-time {
@@ -248,6 +259,10 @@
   .w-signout {
     top: 1rem;
     right: 1rem;
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+    display: flex;
+    align-items: center;
   }
 }
 

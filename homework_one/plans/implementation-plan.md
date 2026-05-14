@@ -1,5 +1,7 @@
 # Welcome App — Dark Auth (ASP.NET Core 8 + React/Vite)
 
+> **Chat addendum implemented.** The Nova chatbot feature (streaming AI assistant, multi-turn conversations, recent-conversations rail) is fully implemented across Phases 0–3. See [chatbot-feature.md](chatbot-feature.md) for the complete spec and design decisions. The backend adds `Conversation` + `ChatMessage` entities with a 5-route `ChatController` and SSE-streaming `ChatService`; the frontend adds `useChat`, five chat components, `lib/chat.ts`, and `styles/chat.css`.
+
 ## Context
 
 The repo currently contains only `design_handoff_dark_auth/` — an interactive React/JSX prototype of a dark-mode sign-up / sign-in flow plus a post-auth welcome greeting. We're building the real thing: a training-scope welcome app that authenticates users (with hashed passwords), then shows them a personalised welcome screen with "Today in your space" stats.
