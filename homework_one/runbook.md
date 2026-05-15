@@ -89,7 +89,7 @@ Two terminals — the SPA proxies `/api/*` to the API, so both must be running.
 **Terminal A — API on `http://localhost:5000`:**
 
 ```powershell
-cd src/WelcomeApp.Api
+cd homework_one/src/WelcomeApp.Api
 dotnet run
 ```
 
@@ -98,7 +98,7 @@ Wait for `Now listening on: http://localhost:5000`. Swagger lives at [http://loc
 **Terminal B — SPA on `http://localhost:5173`:**
 
 ```powershell
-cd client
+cd homework_one/client
 npm run dev
 ```
 
