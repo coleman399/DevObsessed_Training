@@ -28,7 +28,7 @@ dotnet ef --version
 
 ## First-time setup
 
-Run these once per machine. All paths below are relative to this `homework_one/` folder.
+Run these once per machine. All paths below are relative to the repo root.
 
 ### 1. Set the JWT signing key and GitHub Models API key
 
@@ -37,7 +37,7 @@ Run these once per machine. All paths below are relative to this `homework_one/`
 The API refuses to start without `Jwt:Key` in user-secrets (the throw at `Program.cs` line 36 points at the missing setup). Pick any 32+ character base64 string:
 
 ```powershell
-cd src/WelcomeApp.Api
+cd homework_one/src/WelcomeApp.Api
 dotnet user-secrets set "Jwt:Key" "<32+ random chars — e.g. openssl rand -base64 48>"
 ```
 
@@ -75,7 +75,7 @@ The design-time factory at [src/WelcomeApp.Api/Data/DesignTimeDbContextFactory.c
 ### 3. Install frontend dependencies
 
 ```powershell
-cd client
+cd homework_one/client
 npm install
 npx playwright install chromium   # downloads the browser binary (~112 MB)
 ```
@@ -123,7 +123,7 @@ dotnet test homework_one/DevObsessed_Training.sln
 ### Frontend unit / component (Vitest — 79 tests)
 
 ```powershell
-cd client
+cd homework_one/client
 npm test          # one-shot
 npm run test:watch # watch mode
 ```
@@ -133,7 +133,7 @@ MSW intercepts all fetches — no network or backend required.
 ### End-to-end (Playwright — 22 tests)
 
 ```powershell
-cd client
+cd homework_one/client
 npm run e2e                  # full sweep, headless
 npm run e2e -- --project=chromium-desktop  # desktop only
 npm run e2e -- --project=chromium-mobile   # mobile only
@@ -182,7 +182,7 @@ Expected: `data: {"choices":[{"delta":{"content":"..."}}]}` frames ending with `
 ### Adding a migration
 
 ```powershell
-cd src/WelcomeApp.Api
+cd homework_one/src/WelcomeApp.Api
 dotnet ef migrations add <DescriptiveName>
 # Then apply to each DB (see "Migrate the three databases" above)
 ```
@@ -190,7 +190,7 @@ dotnet ef migrations add <DescriptiveName>
 ### Resetting a corrupted DB
 
 ```powershell
-cd src/WelcomeApp.Api
+cd homework_one/src/WelcomeApp.Api
 dotnet ef database drop --connection "Server=(localdb)\MSSQLLocalDB;Database=sqldb-welcomeapp-dev;Trusted_Connection=True;TrustServerCertificate=True;" --force
 dotnet ef database update --connection "Server=(localdb)\MSSQLLocalDB;Database=sqldb-welcomeapp-dev;Trusted_Connection=True;TrustServerCertificate=True;"
 ```
@@ -200,7 +200,7 @@ Same pattern for `-tests` and `-e2e`.
 ### Production build smoke
 
 ```powershell
-cd client
+cd homework_one/client
 npm run build && npm run preview
 ```
 
