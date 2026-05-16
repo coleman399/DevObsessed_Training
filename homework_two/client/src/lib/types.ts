@@ -54,6 +54,28 @@ export interface UpdateProfileRequest {
   teamsChannelsJson?: string;
 }
 
+// ── Work Items ───────────────────────────────────────────────────────────────
+
+export type WorkItemType = 'Bug' | 'Task' | 'User Story';
+
+export interface WorkItemSummary {
+  id: number;
+  title: string;
+  state: string;
+  workItemType: WorkItemType;
+  url: string | null;
+}
+
+export interface WorkItemDraft {
+  workItemType: WorkItemType;
+  title: string;
+  description: string;
+  reproSteps?: string;
+  remainingWork?: number;
+  acceptanceCriteria?: string[];
+  tags: string[];
+}
+
 export class ApiError extends Error {
   readonly status: number;
   readonly body: unknown;

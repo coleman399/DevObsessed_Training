@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using AgpCommandStation.Api.Dtos;
 using AgpCommandStation.Api.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -82,6 +83,56 @@ public class ChatController : ControllerBase
         {
             await Response.WriteAsync("data: [DONE]\n\n", ct);
             await Response.Body.FlushAsync(ct);
+        }
+    }
+
+    // POST /api/chat/workitem-draft
+    [HttpPost("workitem-draft")]
+    public async Task<IActionResult> WorkItemDraft([FromBody] WorkItemDraftRequest request, CancellationToken ct)
+    {
+        var userId = UserId();
+        if (userId is null) return Unauthorized();
+
+        const string system = """
+            You are a concise Azure DevOps work item author.
+            Return ONLY a valid JSON object — no markdown fences, no preamble, no explanation.
+            Match the exact schema for the requested type:
+
+            Bug:
+            { "workItemType": "Bug", "title": "...", "description": "...", "reproSteps": "...", "tags": ["..."] }
+
+            Task:
+            { "workItemType": "Task", "title": "...", "description": "...", "remainingWork": 4, "tags": ["..."] }
+
+            User Story:
+            { "workItemType": "User Story", "title": "...", "description": "...", "acceptanceCriteria": ["Given...", "When...", "Then..."], "tags": ["..."] }
+
+            Rules:
+            - title: concise (≤10 words)
+            - description: 1–3 sentences
+            - reproSteps (Bug only): numbered steps as a single string
+            - remainingWork (Task only): integer hours estimate
+            - acceptanceCriteria (User Story only): 3–5 Given/When/Then strings
+            - tags: 2–4 relevant tags
+            """;
+
+        var userPrompt = $"Type: {request.WorkItemType}\nDescription: {request.Description}";
+
+        try
+        {
+            var raw = await _chat.GetStructuredJsonAsync(userId, system, userPrompt, ct);
+
+            // Strip accidental markdown fences if Claude wraps in ```json
+            var json = Regex.Replace(raw.Trim(), @"^```[a-z]*\n?|```$", "", RegexOptions.Multiline).Trim();
+
+            var draft = JsonSerializer.Deserialize<WorkItemDraftResponse>(json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            return Ok(draft);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return StatusCode(502, new { error = "draft_failed", message = ex.Message });
         }
     }
 

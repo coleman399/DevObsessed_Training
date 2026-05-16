@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ChatInput } from '../chat/ChatInput';
 import { MessageList } from '../chat/MessageList';
 import { PinnedFilesBar } from '../chat/PinnedFilesBar';
+import { WorkItemList } from '../workitems/WorkItemList';
 import { useAuth } from '../../hooks/useAuth';
 import { useChat } from '../../hooks/useChat';
 import '../../styles/command.css';
@@ -124,7 +125,11 @@ export function CommandStation({ onOpenProfile }: Props) {
           </div>
 
           <div className="cs-tab-content" role="tabpanel">
-            <TabStub tab={activeTab} />
+            {activeTab === 'workitems' && profile ? (
+              <WorkItemList profile={profile} />
+            ) : (
+              <TabStub tab={activeTab} />
+            )}
           </div>
         </div>
       </div>
@@ -137,7 +142,7 @@ function TabStub({ tab }: { tab: Tab }) {
     workitems: {
       icon: '◻',
       title: 'Work Items',
-      desc: 'Azure DevOps work items — assigned to you and your team. Coming in Phase B.',
+      desc: '',
     },
     repos: {
       icon: '⌥',

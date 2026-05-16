@@ -16,6 +16,7 @@ public interface IAnthropicChatService
     Task<ConversationDetailDto?> GetConversationAsync(string userId, string conversationId, CancellationToken ct = default);
     Task<bool> UpdateTitleAsync(string userId, string conversationId, string newTitle, CancellationToken ct = default);
     IAsyncEnumerable<string> StreamReplyAsync(string userId, string conversationId, string userText, CancellationToken ct = default);
+    Task<string> GetStructuredJsonAsync(string userId, string systemPrompt, string userPrompt, CancellationToken ct = default);
 }
 
 // ── DTOs (internal to chat service) ─────────────────────────────────────────
@@ -273,6 +274,52 @@ public class AnthropicChatService : IAnthropicChatService
     {
         var normalized = System.Text.RegularExpressions.Regex.Replace(text.Trim(), @"\s+", " ");
         return normalized.Length <= 38 ? normalized : normalized[..35] + "…";
+    }
+
+    /// <summary>
+    /// Makes a non-streaming Anthropic call and returns the raw text response.
+    /// Used for structured-output endpoints (workitem-draft, etc.) where the
+    /// caller expects JSON, not an SSE stream.
+    /// </summary>
+    public async Task<string> GetStructuredJsonAsync(
+        string userId,
+        string systemPrompt,
+        string userPrompt,
+        CancellationToken ct = default)
+    {
+        var opts = _opts.Value;
+        string apiKey;
+
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var user = await db.Users.FindAsync(new object[] { userId }, ct);
+            if (user?.AnthropicApiKeyEncrypted is null)
+                throw new InvalidOperationException("Anthropic API key not configured.");
+            apiKey = _encryption.Decrypt(user.AnthropicApiKeyEncrypted);
+        }
+
+        var payload = new
+        {
+            model = opts.DefaultModel,
+            max_tokens = 1024,
+            system = systemPrompt,
+            messages = new[] { new { role = "user", content = userPrompt } },
+        };
+
+        using var req = new HttpRequestMessage(HttpMethod.Post, "v1/messages");
+        req.Headers.Add("x-api-key", apiKey);
+        req.Headers.Add("anthropic-version", opts.ApiVersion);
+        req.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+        using var resp = await _http.SendAsync(req, ct);
+        resp.EnsureSuccessStatusCode();
+
+        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
+        return doc.RootElement
+            .GetProperty("content")[0]
+            .GetProperty("text")
+            .GetString() ?? string.Empty;
     }
 
     private static string FirstName(string? displayName)

@@ -75,6 +75,12 @@ builder.Services.AddHttpClient<IAnthropicChatService, AnthropicChatService>((sp,
     client.Timeout = TimeSpan.FromMinutes(3);
 });
 
+// Named HTTP client for DevOps proxy (no base address — org/project are dynamic per user)
+builder.Services.AddHttpClient("devops", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
 // CORS
 const string SpaCorsPolicy = "spa";
 builder.Services.AddCors(opts =>
