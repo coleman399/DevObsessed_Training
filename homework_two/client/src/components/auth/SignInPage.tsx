@@ -7,16 +7,12 @@ interface Props {
 }
 
 export function SignInPage({ onSignIn, isLoading, error }: Props) {
-  const scopes = ['User.Read', 'Mail.Read', 'Mail.Send', 'Calendars.ReadWrite', 'Chat.Read', 'ChannelMessage.Read.User'];
-
   return (
     <div className="signin-page theme-light">
       <div className="signin-card">
         <div className="signin-logo">
           <div className="signin-logo-mark">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-              <path d="M14 4L24 10V18L14 24L4 18V10L14 4Z" fill="white" opacity="0.9"/>
-            </svg>
+            <img src="/agp-logo.png" alt="AGP" />
           </div>
           <div className="signin-brand-name">AGP Command Station</div>
           <div className="signin-tagline">Command Station · v2.0</div>
@@ -43,13 +39,6 @@ export function SignInPage({ onSignIn, isLoading, error }: Props) {
         </button>
 
         {error && <div className="signin-error">{error}</div>}
-
-        <div className="signin-scopes">
-          <div className="signin-scopes-label">Requested scopes</div>
-          <div className="signin-scopes-list">
-            {scopes.map((s) => <span key={s} className="scope-pill">{s}</span>)}
-          </div>
-        </div>
 
         <p className="signin-footer">Your Graph token never leaves your browser session.</p>
       </div>
