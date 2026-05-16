@@ -22,13 +22,13 @@ export const LOGIN_SCOPES = [
   'Mail.Send',
   'Calendars.ReadWrite',
   'Chat.Read',
+  'ChannelMessage.Send',
   `499b84ac-1321-427f-aa17-267ca6975798/user_impersonation`,
 ];
 
-// Chat.ReadWrite and ChannelMessage.Send trigger the "Need admin approval" prompt
-// in tenants with restrictive user-consent policies. Starting with Chat.Read so
-// sign-in works. DM replies and channel posting need admin consent to re-enable.
-export const GRAPH_SCOPES = ['User.Read', 'Mail.Read', 'Mail.Send', 'Calendars.ReadWrite', 'Chat.Read'];
+// Chat.ReadWrite blocked by tenant user-consent policy — using Chat.Read.
+// ChannelMessage.Send is fine (confirmed by user).
+export const GRAPH_SCOPES = ['User.Read', 'Mail.Read', 'Mail.Send', 'Calendars.ReadWrite', 'Chat.Read', 'ChannelMessage.Send'];
 export const DEVOPS_SCOPES = ['499b84ac-1321-427f-aa17-267ca6975798/user_impersonation'];
 
 export async function signInWithMicrosoft(): Promise<AuthenticationResult> {
