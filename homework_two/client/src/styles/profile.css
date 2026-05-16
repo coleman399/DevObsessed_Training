@@ -1,0 +1,117 @@
+.profile-page {
+  max-width: 43.75rem;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+.profile-heading {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.5rem;
+}
+
+.profile-sub {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  margin-bottom: 2rem;
+  line-height: 1.55;
+}
+
+.profile-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.profile-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  gap: 1rem;
+}
+
+.profile-section-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.profile-section-desc {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin-top: 0.125rem;
+  line-height: 1.5;
+}
+
+.profile-field { margin-bottom: 0.875rem; }
+
+.profile-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 0.375rem;
+}
+
+.profile-input {
+  width: 100%;
+  padding: 0.5625rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  font-size: 0.875rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.profile-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 0.1875rem var(--primary-soft);
+}
+
+.profile-input.mono { font-family: var(--font-mono); font-size: 0.8125rem; }
+
+.profile-row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+@media (max-width: 37.5rem) {
+  .profile-row2 { grid-template-columns: 1fr; }
+}
+
+.profile-save-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.625rem;
+  margin-top: 1rem;
+}
+
+.profile-saved-msg {
+  font-size: 0.8125rem;
+  color: var(--agp-green-status);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.profile-error-msg {
+  font-size: 0.8125rem;
+  color: var(--agp-red);
+}
+
+.profile-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+  transition: color 0.15s;
+}
+.profile-back-btn:hover { color: var(--text-primary); }

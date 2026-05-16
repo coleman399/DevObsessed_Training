@@ -1,0 +1,66 @@
+export type UserRole = 'ProductOwner' | 'SoftwareEngineer' | 'QA';
+
+export interface UserProfile {
+  id: string;
+  displayName: string;
+  email: string;
+  role: UserRole;
+  onboardingComplete: boolean;
+  devOpsOrganization: string | null;
+  devOpsProject: string | null;
+  gitHubOrganization: string | null;
+  hasAnthropicKey: boolean;
+  hasGitHubPat: boolean;
+  teamsChannelsJson: string | null;
+  model: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  expiresAt: string;
+  user: UserProfile;
+}
+
+export type MessageRole = 'user' | 'assistant';
+
+export interface ChatMessage {
+  id: string;
+  role: MessageRole;
+  content: string;
+  createdAt: string;
+}
+
+export interface ConversationSummary {
+  id: string;
+  title: string;
+  updatedAt: string;
+  messageCount: number;
+}
+
+export interface ConversationDetail {
+  id: string;
+  title: string;
+  updatedAt: string;
+  messages: ChatMessage[];
+}
+
+export interface UpdateProfileRequest {
+  role?: UserRole;
+  anthropicApiKey?: string;
+  devOpsOrganization?: string;
+  devOpsProject?: string;
+  gitHubOrganization?: string;
+  gitHubPat?: string;
+  teamsChannelsJson?: string;
+}
+
+export class ApiError extends Error {
+  readonly status: number;
+  readonly body: unknown;
+  constructor(status: number, body: unknown, message?: string) {
+    super(message ?? `Request failed (${status})`);
+    this.name = 'ApiError';
+    this.status = status;
+    this.body = body;
+  }
+}
