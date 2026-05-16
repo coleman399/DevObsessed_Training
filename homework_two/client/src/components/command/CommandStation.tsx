@@ -6,6 +6,7 @@ import { WorkItemList } from '../workitems/WorkItemList';
 import { MailPanel } from '../outlook/MailPanel';
 import { CalendarPanel } from '../calendar/CalendarPanel';
 import { TeamsPanel } from '../teams/TeamsPanel';
+import { RepoPanel } from '../repos/RepoPanel';
 import { useAuth } from '../../hooks/useAuth';
 import { useChat } from '../../hooks/useChat';
 import '../../styles/command.css';
@@ -130,6 +131,8 @@ export function CommandStation({ onOpenProfile }: Props) {
           <div className="cs-tab-content" role="tabpanel">
             {activeTab === 'workitems' && profile ? (
               <WorkItemList profile={profile} />
+            ) : activeTab === 'repos' && profile ? (
+              <RepoPanel profile={profile} />
             ) : activeTab === 'email' ? (
               <MailPanel />
             ) : activeTab === 'calendar' ? (

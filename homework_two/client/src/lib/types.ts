@@ -76,6 +76,62 @@ export interface WorkItemDraft {
   tags: string[];
 }
 
+// ── Repos & PRs ──────────────────────────────────────────────────────────────
+
+export type RepoPlatform = 'ado' | 'github';
+
+export interface RepoSummary {
+  id: string;
+  name: string;
+  platform: RepoPlatform;
+  defaultBranch: string | null;
+  url: string | null;
+}
+
+export interface TreeNode {
+  name: string;
+  type: 'file' | 'folder';
+  path: string;
+}
+
+export interface FileContent {
+  path: string;
+  content: string;
+  language: string;
+  url: string | null;
+}
+
+export interface BranchSummary {
+  name: string;
+  isDefault: boolean;
+}
+
+export interface CommitSummary {
+  id: string;
+  message: string;
+  author: string;
+  date: string;
+}
+
+export interface PullRequestSummary {
+  id: string;
+  title: string;
+  sourceBranch: string;
+  targetBranch: string;
+  author: string;
+  status: string;
+  platform: RepoPlatform;
+  repoId: string;
+  repoName: string;
+  url: string | null;
+  description: string | null;
+}
+
+export interface PrDraft {
+  title: string;
+  body: string;
+}
+
 // ── Mail ─────────────────────────────────────────────────────────────────────
 
 export interface MailMessage {

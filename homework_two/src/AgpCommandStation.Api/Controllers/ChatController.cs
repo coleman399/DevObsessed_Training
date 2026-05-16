@@ -136,6 +136,69 @@ public class ChatController : ControllerBase
         }
     }
 
+    // POST /api/chat/pr-draft — draft a PR title + body from recent commits
+    [HttpPost("pr-draft")]
+    public async Task<IActionResult> PrDraft([FromBody] PrDraftRequest request, CancellationToken ct)
+    {
+        var userId = UserId();
+        if (userId is null) return Unauthorized();
+
+        const string system = """
+            You are a pull request author. Return ONLY a valid JSON object, no markdown.
+            Schema: { "title": "...", "body": "..." }
+            Rules:
+            - title: imperative sentence ≤72 chars summarizing the change
+            - body: 3-5 bullet points covering what changed, why, and what to watch
+              Use markdown: start with ## Summary, then bullet points
+            - Be concise and specific, reference the branch name and commit messages
+            """;
+
+        var userPrompt = $"Platform: {request.Platform}\nRepo: {request.RepoId}\n" +
+                         $"Source branch: {request.SourceBranch} → Target: {request.TargetBranch}\n\n" +
+                         $"Write a PR title and description.";
+
+        try
+        {
+            var raw = await _chat.GetStructuredJsonAsync(userId, system, userPrompt, ct);
+            var json = Regex.Replace(raw.Trim(), @"^```[a-z]*\n?|```$", "", RegexOptions.Multiline).Trim();
+            var draft = JsonSerializer.Deserialize<PrDraftResponse>(json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            return Ok(draft);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return StatusCode(502, new { error = "pr_draft_failed", message = ex.Message });
+        }
+    }
+
+    // POST /api/chat/pr-summary — summarize a PR
+    [HttpPost("pr-summary")]
+    public async Task<IActionResult> PrSummary([FromBody] PrSummaryRequest request, CancellationToken ct)
+    {
+        var userId = UserId();
+        if (userId is null) return Unauthorized();
+
+        const string system = """
+            You are a code reviewer. Write a plain-English summary of the pull request.
+            3-5 sentences covering: what changed, why, and what reviewers should pay attention to.
+            No markdown, no bullet points. Just prose.
+            """;
+
+        var files = request.ChangedFiles.Take(20);
+        var userPrompt = $"PR: {request.Title}\n\nDescription: {request.Description ?? "(none)"}\n\n" +
+                         $"Changed files:\n{string.Join("\n", files)}";
+
+        try
+        {
+            var summary = await _chat.GetStructuredJsonAsync(userId, system, userPrompt, ct);
+            return Ok(new { summary = summary.Trim() });
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return StatusCode(502, new { error = "pr_summary_failed", message = ex.Message });
+        }
+    }
+
     // POST /api/chat/email-draft — draft a reply or new email body
     [HttpPost("email-draft")]
     public async Task<IActionResult> EmailDraft([FromBody] EmailDraftRequest request, CancellationToken ct)
