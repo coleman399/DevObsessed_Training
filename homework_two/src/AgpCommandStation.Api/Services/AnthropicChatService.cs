@@ -15,7 +15,8 @@ public interface IAnthropicChatService
     Task<IReadOnlyList<ConversationSummaryDto>> ListConversationsAsync(string userId, CancellationToken ct = default);
     Task<ConversationDetailDto?> GetConversationAsync(string userId, string conversationId, CancellationToken ct = default);
     Task<bool> UpdateTitleAsync(string userId, string conversationId, string newTitle, CancellationToken ct = default);
-    IAsyncEnumerable<string> StreamReplyAsync(string userId, string conversationId, string userText, CancellationToken ct = default);
+    IAsyncEnumerable<SseEvent> StreamReplyAsync(string userId, string conversationId, string userText,
+        ToolContext? toolCtx = null, string[]? pinnedFilePaths = null, CancellationToken ct = default);
     Task<string> GetStructuredJsonAsync(string userId, string systemPrompt, string userPrompt, CancellationToken ct = default);
 }
 
@@ -32,6 +33,7 @@ public class AnthropicChatService : IAnthropicChatService
     private readonly IClock _clock;
     private readonly IEncryptionService _encryption;
     private readonly IClaudePersonaService _persona;
+    private readonly IToolExecutorService _toolExecutor;
 
     public AnthropicChatService(
         HttpClient http,
@@ -39,7 +41,8 @@ public class AnthropicChatService : IAnthropicChatService
         IServiceScopeFactory scopeFactory,
         IClock clock,
         IEncryptionService encryption,
-        IClaudePersonaService persona)
+        IClaudePersonaService persona,
+        IToolExecutorService toolExecutor)
     {
         _http = http;
         _opts = opts;
@@ -47,6 +50,7 @@ public class AnthropicChatService : IAnthropicChatService
         _clock = clock;
         _encryption = encryption;
         _persona = persona;
+        _toolExecutor = toolExecutor;
     }
 
     public async Task<ConversationDetailDto> StartConversationAsync(string userId, CancellationToken ct = default)
@@ -125,16 +129,19 @@ public class AnthropicChatService : IAnthropicChatService
         return true;
     }
 
-    public async IAsyncEnumerable<string> StreamReplyAsync(
+    public async IAsyncEnumerable<SseEvent> StreamReplyAsync(
         string userId,
         string conversationId,
         string userText,
+        ToolContext? toolCtx = null,
+        string[]? pinnedFilePaths = null,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         var opts = _opts.Value;
         string systemPrompt;
         string apiKey;
-        List<(string Role, string Content)> historyWindow;
+        string? gitHubPat = null;
+        List<Dictionary<string, object>> messages;
 
         // Phase 1: load context, save user message
         using (var scope = _scopeFactory.CreateScope())
@@ -144,13 +151,15 @@ public class AnthropicChatService : IAnthropicChatService
             var conv = await db.Conversations
                 .Include(c => c.Messages)
                 .FirstOrDefaultAsync(c => c.Id == conversationId && c.UserId == userId, ct);
-
             if (conv is null) yield break;
 
             var user = await db.Users.FindAsync(new object[] { userId }, ct);
             if (user?.AnthropicApiKeyEncrypted is null) yield break;
 
             apiKey = _encryption.Decrypt(user.AnthropicApiKeyEncrypted);
+            if (user.GitHubPatEncrypted is not null)
+                gitHubPat = _encryption.Decrypt(user.GitHubPatEncrypted);
+
             systemPrompt = BuildSystemPrompt(user, _persona);
 
             var existingMsgs = conv.Messages
@@ -162,73 +171,160 @@ public class AnthropicChatService : IAnthropicChatService
                 conv.Title = DeriveTitle(userText);
 
             var now = _clock.Now;
-            var userMsg = new ChatMessage { ConversationId = conversationId, Role = "user", Content = userText, CreatedAt = now };
-            db.ChatMessages.Add(userMsg);
+            db.ChatMessages.Add(new ChatMessage { ConversationId = conversationId, Role = "user", Content = userText, CreatedAt = now });
             conv.UpdatedAt = now;
             await db.SaveChangesAsync(ct);
 
-            existingMsgs.Add(userMsg);
-            historyWindow = existingMsgs
-                .TakeLast(opts.MaxHistoryMessages)
-                .Select(m => (m.Role, m.Content))
-                .ToList();
-        }
+            existingMsgs.Add(new ChatMessage { Role = "user", Content = userText });
+            var history = existingMsgs.TakeLast(opts.MaxHistoryMessages).ToList();
 
-        // Phase 2: stream from Anthropic
-        var messages = historyWindow
-            .Select(m => new { role = m.Role == "assistant" ? "assistant" : "user", content = m.Content })
-            .ToList();
+            // Build pinned-files preamble (prepended as a system addendum)
+            if (pinnedFilePaths?.Length > 0)
+                systemPrompt += $"\n\n---\nThe user has pinned these files for this conversation:\n{string.Join("\n", pinnedFilePaths)}\n" +
+                                "Use get_file to read them if the user asks about them.";
 
-        var payload = new
-        {
-            model = opts.DefaultModel,
-            max_tokens = opts.MaxTokens,
-            stream = true,
-            system = systemPrompt,
-            messages,
-        };
-
-        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "v1/messages");
-        httpRequest.Headers.Add("x-api-key", apiKey);
-        httpRequest.Headers.Add("anthropic-version", opts.ApiVersion);
-        httpRequest.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-
-        using var response = await _http.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, ct);
-        await using var contentStream = await response.Content.ReadAsStreamAsync(ct);
-        using var reader = new StreamReader(contentStream);
-
-        var fullReply = new StringBuilder();
-
-        while (!ct.IsCancellationRequested)
-        {
-            var line = await reader.ReadLineAsync(ct);
-            if (line is null) break;
-            if (!line.StartsWith("data: ")) continue;
-
-            var data = line[6..];
-            if (data == "[DONE]") break;
-
-            string? token = null;
-            try
+            messages = history.Select(m => new Dictionary<string, object>
             {
-                using var doc = JsonDocument.Parse(data);
-                var root = doc.RootElement;
-                // Anthropic SSE: type=content_block_delta, delta.type=text_delta, delta.text=...
-                if (!root.TryGetProperty("type", out var typeEl)) continue;
-                if (typeEl.GetString() != "content_block_delta") continue;
-                if (!root.TryGetProperty("delta", out var delta)) continue;
-                if (!delta.TryGetProperty("text", out var textEl)) continue;
-                token = textEl.GetString();
-            }
-            catch (JsonException) { continue; }
-
-            if (string.IsNullOrEmpty(token)) continue;
-
-            fullReply.Append(token);
-            yield return token;
+                ["role"]    = m.Role == "assistant" ? "assistant" : "user",
+                ["content"] = (object)m.Content
+            }).ToList();
         }
 
-        // Phase 3: persist assistant reply
+        // Phase 2: agentic tool-use loop
+        var fullReply = new StringBuilder();
+        var loopGuard = 0;
+        const int MaxToolRounds = 8;
+
+        while (loopGuard++ < MaxToolRounds && !ct.IsCancellationRequested)
+        {
+            var payload = new Dictionary<string, object>
+            {
+                ["model"]     = opts.DefaultModel,
+                ["max_tokens"] = opts.MaxTokens,
+                ["stream"]    = true,
+                ["system"]    = systemPrompt,
+                ["messages"]  = messages,
+                ["tools"]     = ToolDefinitions.All,
+            };
+
+            using var httpReq = new HttpRequestMessage(HttpMethod.Post, "v1/messages");
+            httpReq.Headers.Add("x-api-key", apiKey);
+            httpReq.Headers.Add("anthropic-version", opts.ApiVersion);
+            httpReq.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+            using var response = await _http.SendAsync(httpReq, HttpCompletionOption.ResponseHeadersRead, ct);
+            await using var stream = await response.Content.ReadAsStreamAsync(ct);
+            using var reader = new StreamReader(stream);
+
+            // Collect content blocks from this turn
+            var textSoFar = new StringBuilder();
+            var toolCalls = new List<(string Id, string Name, StringBuilder InputJson)>();
+            (string Id, string Name, StringBuilder InputJson)? activeTool = null;
+            var stopReason = "";
+
+            while (!ct.IsCancellationRequested)
+            {
+                var line = await reader.ReadLineAsync(ct);
+                if (line is null) break;
+                if (!line.StartsWith("data: ")) continue;
+
+                var data = line[6..];
+                if (data == "[DONE]") break;
+
+                JsonElement root;
+                try { root = JsonDocument.Parse(data).RootElement; }
+                catch (JsonException) { continue; }
+
+                if (!root.TryGetProperty("type", out var typeEl)) continue;
+                var type = typeEl.GetString();
+
+                switch (type)
+                {
+                    case "content_block_start":
+                        if (!root.TryGetProperty("content_block", out var cb)) break;
+                        if (cb.TryGetProperty("type", out var cbType) && cbType.GetString() == "tool_use")
+                        {
+                            var toolId   = cb.TryGetProperty("id",   out var tid) ? tid.GetString() ?? "" : "";
+                            var toolName = cb.TryGetProperty("name", out var tn)  ? tn.GetString()  ?? "" : "";
+                            activeTool = (toolId, toolName, new StringBuilder());
+                        }
+                        break;
+
+                    case "content_block_delta":
+                        if (!root.TryGetProperty("delta", out var delta)) break;
+                        if (!delta.TryGetProperty("type", out var deltaType)) break;
+
+                        if (deltaType.GetString() == "text_delta" &&
+                            delta.TryGetProperty("text", out var textEl))
+                        {
+                            var token = textEl.GetString() ?? "";
+                            if (!string.IsNullOrEmpty(token))
+                            {
+                                textSoFar.Append(token);
+                                fullReply.Append(token);
+                                yield return new TextToken(token);
+                            }
+                        }
+                        else if (deltaType.GetString() == "input_json_delta" &&
+                                 delta.TryGetProperty("partial_json", out var pj) &&
+                                 activeTool is not null)
+                        {
+                            activeTool.Value.InputJson.Append(pj.GetString());
+                        }
+                        break;
+
+                    case "content_block_stop":
+                        if (activeTool is not null)
+                        {
+                            toolCalls.Add(activeTool.Value);
+                            activeTool = null;
+                        }
+                        break;
+
+                    case "message_delta":
+                        if (root.TryGetProperty("delta", out var md) &&
+                            md.TryGetProperty("stop_reason", out var sr))
+                            stopReason = sr.GetString() ?? "";
+                        break;
+                }
+            }
+
+            // If no tool calls, we're done
+            if (stopReason != "tool_use" || toolCalls.Count == 0)
+                break;
+
+            // Add assistant's turn (with tool_use blocks) to messages
+            var assistantContent = new List<object>();
+            if (textSoFar.Length > 0)
+                assistantContent.Add(new { type = "text", text = textSoFar.ToString() });
+            foreach (var tc in toolCalls)
+            {
+                JsonElement parsedInput;
+                try { parsedInput = JsonDocument.Parse(tc.InputJson.Length > 0 ? tc.InputJson.ToString() : "{}").RootElement; }
+                catch { parsedInput = JsonDocument.Parse("{}").RootElement; }
+                assistantContent.Add(new { type = "tool_use", id = tc.Id, name = tc.Name, input = parsedInput });
+            }
+            messages.Add(new Dictionary<string, object> { ["role"] = "assistant", ["content"] = (object)assistantContent });
+
+            // Execute each tool and collect results
+            var toolResults = new List<object>();
+            foreach (var tc in toolCalls)
+            {
+                var label = ToolLabel(tc.Name, tc.InputJson.ToString());
+                yield return new ToolCallEvent(tc.Name, label);
+
+                JsonElement inputEl;
+                try { inputEl = JsonDocument.Parse(tc.InputJson.Length > 0 ? tc.InputJson.ToString() : "{}").RootElement; }
+                catch { inputEl = JsonDocument.Parse("{}").RootElement; }
+
+                var result = await _toolExecutor.ExecuteAsync(tc.Name, inputEl, toolCtx ?? new ToolContext(null, null, null, null, null), gitHubPat, ct);
+                toolResults.Add(new { type = "tool_result", tool_use_id = tc.Id, content = result });
+            }
+
+            messages.Add(new Dictionary<string, object> { ["role"] = "user", ["content"] = (object)toolResults });
+        }
+
+        // Phase 3: persist final assistant reply
         var reply = fullReply.ToString().Trim();
         if (string.IsNullOrEmpty(reply)) reply = "I'm here.";
 
@@ -241,6 +337,39 @@ public class AnthropicChatService : IAnthropicChatService
             if (conv is not null) conv.UpdatedAt = now;
             await db.SaveChangesAsync(ct);
         }
+    }
+
+    private static string ToolLabel(string name, string inputJson)
+    {
+        string arg = "";
+        try
+        {
+            using var doc = JsonDocument.Parse(string.IsNullOrEmpty(inputJson) ? "{}" : inputJson);
+            arg = name switch
+            {
+                "search_code"           => doc.RootElement.TryGetProperty("query", out var q) ? $"\"{q.GetString()}\"" : "",
+                "get_file"              => doc.RootElement.TryGetProperty("path",  out var p) ? p.GetString() ?? "" : "",
+                "list_directory"        => doc.RootElement.TryGetProperty("path",  out var p) ? p.GetString() ?? "" : "",
+                "search_emails"         => doc.RootElement.TryGetProperty("query", out var q) ? $"\"{q.GetString()}\"" : "",
+                "get_email_thread"      => "thread",
+                "search_teams_messages" => doc.RootElement.TryGetProperty("query", out var q) ? $"\"{q.GetString()}\"" : "",
+                "get_channel_messages"  => "channel",
+                _                       => ""
+            };
+        }
+        catch { /* ignore */ }
+
+        return name switch
+        {
+            "search_code"           => $"🔍 Searching code for {arg}…",
+            "get_file"              => $"📄 Reading {arg}…",
+            "list_directory"        => $"📁 Listing {arg}…",
+            "search_emails"         => $"✉️ Searching emails for {arg}…",
+            "get_email_thread"      => "✉️ Reading email thread…",
+            "search_teams_messages" => $"💬 Searching Teams for {arg}…",
+            "get_channel_messages"  => "💬 Reading channel messages…",
+            _                       => $"⚙️ Running {name}…"
+        };
     }
 
     private static string BuildSystemPrompt(ApplicationUser user, IClaudePersonaService persona)

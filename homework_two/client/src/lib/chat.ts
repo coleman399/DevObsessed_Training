@@ -1,5 +1,5 @@
 import { apiFetch } from './api';
-import { tokenStorage } from './auth';
+import { getDevOpsToken, getGraphToken, tokenStorage } from './auth';
 import type { ConversationDetail, ConversationSummary } from './types';
 
 export function deriveTitle(text: string): string {
@@ -19,20 +19,37 @@ export async function getConversation(id: string): Promise<ConversationDetail> {
   return apiFetch<ConversationDetail>(`/api/chat/conversations/${id}`);
 }
 
+export interface StreamCallbacks {
+  onToken: (token: string) => void;
+  onToolCall?: (name: string, label: string) => void;
+}
+
 export async function streamChat(
   conversationId: string,
   message: string,
-  onToken: (token: string) => void,
+  callbacks: StreamCallbacks | ((token: string) => void),
+  pinnedFiles?: string[],
 ): Promise<void> {
-  const token = tokenStorage.get();
+  const { onToken, onToolCall } = typeof callbacks === 'function'
+    ? { onToken: callbacks, onToolCall: undefined }
+    : callbacks;
+
+  const appToken = tokenStorage.get();
+  const devOpsToken = await getDevOpsToken();
+  const graphToken  = await getGraphToken();
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Accept': 'text/event-stream',
+  };
+  if (appToken)    headers['Authorization']  = `Bearer ${appToken}`;
+  if (devOpsToken) headers['X-DevOps-Token'] = devOpsToken;
+  if (graphToken)  headers['X-Graph-Token']  = graphToken;
+
   const response = await fetch(`/api/chat/conversations/${conversationId}/messages`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'text/event-stream',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({ message }),
+    headers,
+    body: JSON.stringify({ message, pinnedFiles: pinnedFiles ?? [] }),
   });
 
   if (!response.ok) throw new Error(`Stream failed: ${response.status}`);
@@ -55,8 +72,13 @@ export async function streamChat(
       const data = line.slice(6);
       if (data === '[DONE]') return;
       try {
-        const parsed = JSON.parse(data) as { token?: string; error?: string };
+        const parsed = JSON.parse(data) as {
+          token?: string;
+          toolCall?: { name: string; label: string };
+          error?: string;
+        };
         if (parsed.token) onToken(parsed.token);
+        if (parsed.toolCall && onToolCall) onToolCall(parsed.toolCall.name, parsed.toolCall.label);
       } catch {
         // ignore malformed SSE lines
       }

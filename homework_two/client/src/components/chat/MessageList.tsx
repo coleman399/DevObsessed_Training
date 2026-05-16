@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { MessageBubble } from './MessageBubble';
+import { ToolCallIndicator } from './ToolCallIndicator';
 import type { LocalMessage } from '../../hooks/useChat';
 
 interface Props {
@@ -15,12 +16,14 @@ export function MessageList({ messages, streaming }: Props) {
   }, [messages, streaming]);
 
   const lastMsg = messages[messages.length - 1];
-  const lastIsStreamingAssistant =
-    streaming && lastMsg?.role === 'assistant';
+  const lastIsStreamingAssistant = streaming && lastMsg?.role === 'assistant' && !lastMsg.isToolCall;
 
   return (
     <div className="chat-thread" role="log" aria-live="polite">
       {messages.map((m, i) => {
+        if (m.isToolCall) {
+          return <ToolCallIndicator key={m.id} label={m.content} />;
+        }
         const isLastAssistant = i === messages.length - 1 && m.role === 'assistant';
         return (
           <MessageBubble

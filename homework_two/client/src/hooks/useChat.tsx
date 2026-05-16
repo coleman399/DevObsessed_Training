@@ -127,13 +127,31 @@ export function ChatProvider({ firstName, children }: { firstName: string; child
     setStreaming(true);
 
     try {
-      await streamChat(convId, text, (token) => {
-        setConversations((prev) => prev.map((c) =>
-          c.id === convId
-            ? { ...c, messages: c.messages.map((m) =>
-                m.id === draftMsgId ? { ...m, content: m.content + token } : m) }
-            : c));
-      });
+      await streamChat(convId, text, {
+        onToken: (token) => {
+          setConversations((prev) => prev.map((c) =>
+            c.id === convId
+              ? { ...c, messages: c.messages.map((m) =>
+                  m.id === draftMsgId ? { ...m, content: m.content + token } : m) }
+              : c));
+        },
+        onToolCall: (_name, label) => {
+          const toolMsgId = `msg-tool-${Date.now()}-${Math.random()}`;
+          setConversations((prev) => prev.map((c) =>
+            c.id === convId
+              ? {
+                  ...c,
+                  messages: [
+                    // Insert tool indicator before the draft message
+                    ...c.messages.filter(m => m.id !== draftMsgId),
+                    { id: toolMsgId, role: 'assistant' as const, content: label, createdAt: new Date(), isToolCall: true },
+                    // Re-insert draft at end
+                    ...c.messages.filter(m => m.id === draftMsgId),
+                  ],
+                }
+              : c));
+        },
+      }, pinnedFiles);
     } catch {
       setConversations((prev) => prev.map((c) =>
         c.id === convId

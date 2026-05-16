@@ -65,6 +65,7 @@ builder.Services.AddAuthorization();
 // Application services
 builder.Services.AddSingleton<IEncryptionService, EncryptionService>();
 builder.Services.AddSingleton<IClaudePersonaService, ClaudePersonaService>();
+builder.Services.AddScoped<IToolExecutorService, ToolExecutorService>();
 
 // Anthropic chat
 builder.Services.Configure<AnthropicChatOptions>(builder.Configuration.GetSection("Anthropic"));

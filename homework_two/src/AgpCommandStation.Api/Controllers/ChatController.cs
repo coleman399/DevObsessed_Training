@@ -63,16 +63,46 @@ public class ChatController : ControllerBase
         var exists = await _chat.GetConversationAsync(userId, id, ct);
         if (exists is null) { Response.StatusCode = 404; return; }
 
+        // Extract forwarded Microsoft tokens (optional — tools degrade gracefully without them)
+        var devOpsToken = Request.Headers["X-DevOps-Token"].FirstOrDefault();
+        var graphToken  = Request.Headers["X-Graph-Token"].FirstOrDefault();
+
+        // Resolve user's DevOps org/project and GitHub org for tool context
+        AgpCommandStation.Api.Services.ToolContext? toolCtx = null;
+        using (var scope = HttpContext.RequestServices.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AgpCommandStation.Api.Data.AppDbContext>();
+            var user = await db.Users.FindAsync(new object[] { userId! }, ct);
+            if (user is not null)
+            {
+                toolCtx = new AgpCommandStation.Api.Services.ToolContext(
+                    devOpsToken, graphToken,
+                    user.DevOpsOrganization, user.DevOpsProject,
+                    user.GitHubOrganization);
+            }
+        }
+
         Response.ContentType = "text/event-stream";
         Response.Headers.CacheControl = "no-cache";
         Response.Headers["X-Accel-Buffering"] = "no";
 
         try
         {
-            await foreach (var token in _chat.StreamReplyAsync(userId, id, request.Message, ct))
+            await foreach (var evt in _chat.StreamReplyAsync(userId, id, request.Message, toolCtx, request.PinnedFiles, ct))
             {
-                await Response.WriteAsync($"data: {JsonSerializer.Serialize(new { token })}\n\n", ct);
-                await Response.Body.FlushAsync(ct);
+                var json = evt switch
+                {
+                    AgpCommandStation.Api.Services.TextToken(var token)
+                        => JsonSerializer.Serialize(new { token }),
+                    AgpCommandStation.Api.Services.ToolCallEvent(var name, var label)
+                        => JsonSerializer.Serialize(new { toolCall = new { name, label } }),
+                    _ => null
+                };
+                if (json is not null)
+                {
+                    await Response.WriteAsync($"data: {json}\n\n", ct);
+                    await Response.Body.FlushAsync(ct);
+                }
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
