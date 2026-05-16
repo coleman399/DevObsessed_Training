@@ -274,6 +274,27 @@ public class GraphController : ControllerBase
         return Ok(messages);
     }
 
+    // POST /api/graph/teams/chats/{chatId}/messages — reply to a DM or group chat
+    [HttpPost("teams/chats/{chatId}/messages")]
+    public async Task<IActionResult> ReplyToChat(
+        string chatId,
+        [FromBody] SendChannelMessageRequest request,
+        CancellationToken ct)
+    {
+        var (client, err) = GetClient();
+        if (err is not null) return err;
+
+        var payload = new { body = new { content = request.Content } };
+        using var req = new HttpRequestMessage(HttpMethod.Post,
+            $"{GraphBase}/me/chats/{chatId}/messages");
+        req.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+        using var resp = await client!.SendAsync(req, ct);
+        return resp.IsSuccessStatusCode
+            ? NoContent()
+            : StatusCode((int)resp.StatusCode, new { error = "graph_dm_reply_failed" });
+    }
+
     // POST /api/graph/teams/channels/{teamId}/{channelId}
     [HttpPost("teams/channels/{teamId}/{channelId}")]
     public async Task<IActionResult> PostToChannel(

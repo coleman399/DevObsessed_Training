@@ -12,7 +12,7 @@ The visual source of truth is [`designs/v2/`](designs/v2/). The selected variant
 - **Role-aware AI chat** — streaming Claude assistant (per-user Anthropic key, AES-256-GCM encrypted at rest). System prompt assembles your `~/.claude/CLAUDE.md` persona + role guidance (PO / SE / QA).
 - **Agentic tool use** — Claude calls `search_code`, `get_file`, `list_directory`, `search_emails`, `get_email_thread`, `search_teams_messages`, `get_channel_messages` server-side. Tool indicators stream to the UI in real time. Up to 8 tool rounds per message.
 - **Work Items (Phase B)** — list assigned ADO items, AI-assisted create (Bug / Task / User Story), inline state transitions, add comments. No PAT — auth flows through the Microsoft token.
-- **Microsoft 365 (Phase C)** — Outlook inbox with AI reply drafting, Calendar week view with AI event drafting, Teams chats + channel messages with AI message polish and "Post to channel".
+- **Microsoft 365 (Phase C)** — Outlook inbox with AI reply drafting, Calendar week view with AI event drafting, Teams chats + channel messages with inline DM replies and AI message polish and "Post to channel".
 - **Repos & PRs (Phase D)** — ADO and GitHub repos, lazy file tree browser, inline code viewer, Pin to chat, PR list with AI summary, approve (ADO), and comment thread.
 - **Global search (Phase F)** — `Ctrl+K` command palette fans out to ADO Work Item Search, ADO Code Search, GitHub Issues/PRs, GitHub Code, and Graph unified search simultaneously.
 - **Notification bell (Phase G)** — aggregates ADO work item changes, PR review requests, unread email, upcoming meetings, and Teams @mentions; 60-second poll.

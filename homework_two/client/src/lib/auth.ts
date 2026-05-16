@@ -21,12 +21,12 @@ export const LOGIN_SCOPES = [
   'Mail.Read',
   'Mail.Send',
   'Calendars.ReadWrite',
-  'Chat.Read',
+  'Chat.ReadWrite',
   'ChannelMessage.Read.User',
   `499b84ac-1321-427f-aa17-267ca6975798/user_impersonation`,
 ];
 
-export const GRAPH_SCOPES = ['User.Read', 'Mail.Read', 'Mail.Send', 'Calendars.ReadWrite', 'Chat.Read', 'ChannelMessage.Read.User'];
+export const GRAPH_SCOPES = ['User.Read', 'Mail.Read', 'Mail.Send', 'Calendars.ReadWrite', 'Chat.ReadWrite', 'ChannelMessage.Read.User'];
 export const DEVOPS_SCOPES = ['499b84ac-1321-427f-aa17-267ca6975798/user_impersonation'];
 
 export async function signInWithMicrosoft(): Promise<AuthenticationResult> {

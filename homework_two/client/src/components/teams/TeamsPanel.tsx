@@ -18,9 +18,28 @@ interface Props {
 }
 
 export function TeamsPanel({ profile, canPost }: Props) {
-  const { chats, channelMessages, channels, loadState, load, postToChannel, polishMessage } = useTeams(profile.teamsChannelsJson);
+  const { chats, channelMessages, channels, loadState, load, replyToChat, postToChannel, polishMessage } = useTeams(profile.teamsChannelsJson);
   const [sendModalOpen, setSendModalOpen] = useState(false);
   const [credDismissed, setCredDismissed] = useState(false);
+  const [replyOpen, setReplyOpen] = useState<string | null>(null); // chatId
+  const [replyText, setReplyText] = useState('');
+  const [replySending, setReplySending] = useState(false);
+  const [replyError, setReplyError] = useState<string | null>(null);
+
+  async function handleReply(chatId: string) {
+    if (!replyText.trim()) return;
+    setReplySending(true);
+    setReplyError(null);
+    try {
+      await replyToChat(chatId, replyText.trim());
+      setReplyText('');
+      setReplyOpen(null);
+    } catch {
+      setReplyError('Failed to send. Try again.');
+    } finally {
+      setReplySending(false);
+    }
+  }
 
   return (
     <div className="m365-panel">
@@ -76,6 +95,43 @@ export function TeamsPanel({ profile, canPost }: Props) {
                   <div key={c.id} className="teams-chat-row">
                     <div className="teams-chat-topic">{c.topic}</div>
                     <div className="teams-chat-preview">{c.lastMessagePreview}</div>
+
+                    {/* Inline reply */}
+                    {replyOpen === c.id ? (
+                      <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                        <textarea
+                          className="wi-comment-input"
+                          rows={2}
+                          placeholder="Reply…"
+                          autoFocus
+                          value={replyText}
+                          onChange={e => setReplyText(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleReply(c.id); }
+                            if (e.key === 'Escape') { setReplyOpen(null); setReplyText(''); }
+                          }}
+                        />
+                        {replyError && <div style={{ fontSize: '0.75rem', color: 'var(--agp-red)' }}>{replyError}</div>}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.375rem' }}>
+                          <button className="btn btn-ghost" type="button"
+                            style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                            onClick={() => { setReplyOpen(null); setReplyText(''); setReplyError(null); }}>
+                            Cancel
+                          </button>
+                          <button className="btn btn-primary" type="button"
+                            style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                            disabled={!replyText.trim() || replySending}
+                            onClick={() => void handleReply(c.id)}>
+                            {replySending ? 'Sending…' : 'Send'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button className="wi-comment-toggle" type="button"
+                        onClick={() => { setReplyOpen(c.id); setReplyText(''); setReplyError(null); }}>
+                        ▸ Reply
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

@@ -46,7 +46,7 @@ Skip this step if the app is already registered and you have the Tenant ID and C
 | `Mail.Read` | Delegated | No |
 | `Mail.Send` | Delegated | No |
 | `Calendars.ReadWrite` | Delegated | No |
-| `Chat.Read` | Delegated | No |
+| `Chat.ReadWrite` | Delegated | No |
 | `ChannelMessage.Read.User` | Delegated | No |
 | `ChannelMessage.Send` | Delegated | **Yes** |
 | Azure DevOps `user_impersonation` | Delegated (add "Azure DevOps" as an API) | No |

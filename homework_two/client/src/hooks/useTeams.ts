@@ -57,6 +57,15 @@ export function useTeams(teamsChannelsJson: string | null) {
     void load();
   }, [load]);
 
+  const replyToChat = useCallback(async (chatId: string, content: string) => {
+    const headers = await graphHeaders();
+    await apiFetch(`/api/graph/teams/chats/${chatId}/messages`, {
+      method: 'POST',
+      body: { content },
+      headers,
+    });
+  }, []);
+
   const postToChannel = useCallback(async (teamId: string, channelId: string, content: string) => {
     const headers = await graphHeaders();
     await apiFetch(`/api/graph/teams/channels/${teamId}/${channelId}`, {
@@ -74,5 +83,5 @@ export function useTeams(teamsChannelsJson: string | null) {
     return result.polishedMessage;
   }, []);
 
-  return { chats, channelMessages, channels, loadState, load, postToChannel, polishMessage };
+  return { chats, channelMessages, channels, loadState, load, replyToChat, postToChannel, polishMessage };
 }
