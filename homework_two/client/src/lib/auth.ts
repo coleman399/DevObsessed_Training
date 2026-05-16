@@ -22,11 +22,14 @@ export const LOGIN_SCOPES = [
   'Mail.Send',
   'Calendars.ReadWrite',
   'Chat.ReadWrite',
-  'ChannelMessage.Read.User',
+  'ChannelMessage.Send',
   `499b84ac-1321-427f-aa17-267ca6975798/user_impersonation`,
 ];
 
-export const GRAPH_SCOPES = ['User.Read', 'Mail.Read', 'Mail.Send', 'Calendars.ReadWrite', 'Chat.ReadWrite', 'ChannelMessage.Read.User'];
+// ChannelMessage.ReadWrite is registered but requires admin consent (not yet granted).
+// Channel message *reading* will return 403 and show a graceful error until an admin
+// grants consent. Sending and everything else works without admin involvement.
+export const GRAPH_SCOPES = ['User.Read', 'Mail.Read', 'Mail.Send', 'Calendars.ReadWrite', 'Chat.ReadWrite', 'ChannelMessage.Send'];
 export const DEVOPS_SCOPES = ['499b84ac-1321-427f-aa17-267ca6975798/user_impersonation'];
 
 export async function signInWithMicrosoft(): Promise<AuthenticationResult> {
