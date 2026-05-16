@@ -176,7 +176,7 @@ export function CommandStation({ onOpenProfile }: Props) {
             ) : activeTab === 'calendar' ? (
               <CalendarPanel />
             ) : activeTab === 'teams' && profile ? (
-              <TeamsPanel profile={profile} canPost={true} />
+              <TeamsPanel profile={profile} canPost={false} />
             ) : null}
           </div>
         </div>
