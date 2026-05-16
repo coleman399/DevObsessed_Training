@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ChatInput } from '../chat/ChatInput';
 import { MessageList } from '../chat/MessageList';
 import { PinnedFilesBar } from '../chat/PinnedFilesBar';
@@ -7,25 +7,29 @@ import { MailPanel } from '../outlook/MailPanel';
 import { CalendarPanel } from '../calendar/CalendarPanel';
 import { TeamsPanel } from '../teams/TeamsPanel';
 import { RepoPanel } from '../repos/RepoPanel';
+import { CommandPalette } from '../search/CommandPalette';
+import { NotificationBell } from '../notifications/NotificationBell';
+import { KeyboardShortcutsModal } from '../shortcuts/KeyboardShortcutsModal';
 import { useAuth } from '../../hooks/useAuth';
 import { useChat } from '../../hooks/useChat';
+import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import '../../styles/command.css';
 import '../../styles/chat.css';
 
 type Tab = 'workitems' | 'repos' | 'email' | 'calendar' | 'teams';
 
 const TABS: { id: Tab; label: string; key: string }[] = [
-  { id: 'workitems', label: 'Work Items', key: '1' },
-  { id: 'repos', label: 'Repos & PRs', key: '2' },
-  { id: 'email', label: 'Email', key: '3' },
-  { id: 'calendar', label: 'Calendar', key: '4' },
-  { id: 'teams', label: 'Teams', key: '5' },
+  { id: 'workitems', label: 'Work Items',  key: '1' },
+  { id: 'repos',     label: 'Repos & PRs', key: '2' },
+  { id: 'email',     label: 'Email',       key: '3' },
+  { id: 'calendar',  label: 'Calendar',    key: '4' },
+  { id: 'teams',     label: 'Teams',       key: '5' },
 ];
 
 function roleAbbr(role: string) {
-  if (role === 'ProductOwner') return 'PO';
+  if (role === 'ProductOwner')     return 'PO';
   if (role === 'SoftwareEngineer') return 'SE';
-  if (role === 'QA') return 'QA';
+  if (role === 'QA')               return 'QA';
   return role.slice(0, 2).toUpperCase();
 }
 
@@ -36,11 +40,36 @@ interface Props {
 export function CommandStation({ onOpenProfile }: Props) {
   const { profile, signOut } = useAuth();
   const { activeConversation, streaming, sendMessage, pinnedFiles, unpinFile } = useChat();
-  const [activeTab, setActiveTab] = useState<Tab>('workitems');
-  const [menuOpen, setMenuOpen] = useState(false);
-  const firstName = (profile?.displayName ?? '').split(' ')[0];
 
-  const messages = activeConversation?.messages ?? [];
+  const [activeTab, setActiveTab]       = useState<Tab>('workitems');
+  const [menuOpen, setMenuOpen]         = useState(false);
+  const [paletteOpen, setPaletteOpen]   = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [chatHidden, setChatHidden]     = useState(false);
+  const [newWorkItemTrigger, setNewWorkItemTrigger] = useState(0);
+
+  const firstName = (profile?.displayName ?? '').split(' ')[0];
+  const messages  = activeConversation?.messages ?? [];
+
+  const kbHandlers = useMemo(() => ({
+    onOpenSearch:    () => setPaletteOpen(true),
+    onToggleChat:    () => setChatHidden(h => !h),
+    onNewWorkItem:   () => { setActiveTab('workitems'); setNewWorkItemTrigger(n => n + 1); },
+    onShowShortcuts: () => setShortcutsOpen(true),
+    onSwitchTab:     (tab: Tab) => setActiveTab(tab),
+    onEscape:        () => {
+      if (paletteOpen)  { setPaletteOpen(false);   return; }
+      if (shortcutsOpen){ setShortcutsOpen(false);  return; }
+      if (menuOpen)     { setMenuOpen(false);       return; }
+    },
+  }), [paletteOpen, shortcutsOpen, menuOpen]);
+
+  useKeyboardShortcuts(kbHandlers);
+
+  const handleNavigate = useCallback((tab: Tab) => {
+    setActiveTab(tab);
+    setPaletteOpen(false);
+  }, []);
 
   return (
     <div className="cs-root theme-light">
@@ -56,16 +85,16 @@ export function CommandStation({ onOpenProfile }: Props) {
         </div>
 
         <div className="cs-nav-search">
-          <input placeholder="⌘K Search…" readOnly />
+          <input
+            placeholder="⌘K Search…"
+            readOnly
+            onClick={() => setPaletteOpen(true)}
+            style={{ cursor: 'pointer' }}
+          />
         </div>
 
         <div className="cs-nav-right">
-          <button className="cs-nav-bell" type="button" aria-label="Notifications">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-              <path d="M8 1a5 5 0 0 1 5 5v2l1.5 2.5h-13L3 8V6a5 5 0 0 1 5-5z"/>
-              <path d="M6.5 13.5a1.5 1.5 0 0 0 3 0"/>
-            </svg>
-          </button>
+          <NotificationBell onNavigate={(tab) => setActiveTab(tab as Tab)} />
 
           {profile && (
             <div className="cs-nav-role-pill">
@@ -74,16 +103,23 @@ export function CommandStation({ onOpenProfile }: Props) {
           )}
 
           <div className="cs-nav-user-menu">
-            <button type="button" className="cs-nav-user-btn" onClick={() => setMenuOpen((o) => !o)}>
+            <button type="button" className="cs-nav-user-btn" onClick={() => setMenuOpen(o => !o)}>
               {profile?.displayName ?? 'User'} ▾
             </button>
             {menuOpen && (
               <div className="cs-nav-dropdown">
-                <button className="cs-nav-dropdown-item" type="button" onClick={() => { setMenuOpen(false); onOpenProfile(); }}>
+                <button className="cs-nav-dropdown-item" type="button"
+                  onClick={() => { setMenuOpen(false); onOpenProfile(); }}>
                   Profile Settings
                 </button>
+                <button className="cs-nav-dropdown-item" type="button"
+                  onClick={() => { setMenuOpen(false); setShortcutsOpen(true); }}>
+                  Keyboard shortcuts
+                  <span style={{ marginLeft: 'auto', fontSize: '0.625rem', fontFamily: 'var(--font-mono)', color: 'var(--text-quaternary)' }}>Ctrl+/</span>
+                </button>
                 <div className="cs-nav-dropdown-divider" />
-                <button className="cs-nav-dropdown-item danger" type="button" onClick={() => { setMenuOpen(false); signOut(); }}>
+                <button className="cs-nav-dropdown-item danger" type="button"
+                  onClick={() => { setMenuOpen(false); signOut(); }}>
                   Sign out
                 </button>
               </div>
@@ -93,27 +129,29 @@ export function CommandStation({ onOpenProfile }: Props) {
       </nav>
 
       {/* Main */}
-      <div className="cs-main">
+      <div className="cs-main" style={{ gridTemplateColumns: chatHidden ? '0 1fr' : '22rem 1fr' }}>
         {/* Left: AI Chat */}
-        <div className="cs-left">
-          <div className="cs-left-header">
-            AI Chat
-            {profile?.model && <span className="cs-model-badge">{profile.model}</span>}
+        {!chatHidden && (
+          <div className="cs-left">
+            <div className="cs-left-header">
+              AI Chat
+              {profile?.model && <span className="cs-model-badge">{profile.model}</span>}
+            </div>
+
+            <MessageList messages={messages} streaming={streaming} />
+
+            {pinnedFiles.length > 0 && (
+              <PinnedFilesBar files={pinnedFiles} onUnpin={unpinFile} />
+            )}
+
+            <ChatInput onSend={sendMessage} disabled={streaming} />
           </div>
-
-          <MessageList messages={messages} streaming={streaming} />
-
-          {pinnedFiles.length > 0 && (
-            <PinnedFilesBar files={pinnedFiles} onUnpin={unpinFile} />
-          )}
-
-          <ChatInput onSend={sendMessage} disabled={streaming} />
-        </div>
+        )}
 
         {/* Right: Tabbed panels */}
         <div className="cs-right">
           <div className="cs-tabs" role="tablist">
-            {TABS.map((t) => (
+            {TABS.map(t => (
               <button
                 key={t.id}
                 type="button"
@@ -130,7 +168,7 @@ export function CommandStation({ onOpenProfile }: Props) {
 
           <div className="cs-tab-content" role="tabpanel">
             {activeTab === 'workitems' && profile ? (
-              <WorkItemList profile={profile} />
+              <WorkItemList profile={profile} newItemTrigger={newWorkItemTrigger} />
             ) : activeTab === 'repos' && profile ? (
               <RepoPanel profile={profile} />
             ) : activeTab === 'email' ? (
@@ -139,50 +177,21 @@ export function CommandStation({ onOpenProfile }: Props) {
               <CalendarPanel />
             ) : activeTab === 'teams' && profile ? (
               <TeamsPanel profile={profile} canPost={false} />
-            ) : (
-              <TabStub tab={activeTab} />
-            )}
+            ) : null}
           </div>
         </div>
       </div>
-    </div>
-  );
-}
 
-function TabStub({ tab }: { tab: Tab }) {
-  const LABELS: Record<Tab, { icon: string; title: string; desc: string }> = {
-    workitems: {
-      icon: '◻',
-      title: 'Work Items',
-      desc: '',
-    },
-    repos: {
-      icon: '⌥',
-      title: 'Repos & PRs',
-      desc: 'Azure DevOps and GitHub repositories and pull requests. Coming in Phase D.',
-    },
-    email: {
-      icon: '✉',
-      title: 'Email',
-      desc: 'Unread Outlook emails and compose. Requires Mail.Read scope. Coming in Phase C.',
-    },
-    calendar: {
-      icon: '◷',
-      title: 'Calendar',
-      desc: 'Week view and Teams join links. Requires Calendars.ReadWrite scope. Coming in Phase C.',
-    },
-    teams: {
-      icon: '⊞',
-      title: 'Teams',
-      desc: 'Mentions, channels, and send. Requires Chat.Read scope. Coming in Phase C.',
-    },
-  };
-  const info = LABELS[tab];
-  return (
-    <div className="cs-stub">
-      <div className="cs-stub-icon">{info.icon}</div>
-      <div className="cs-stub-title">{info.title}</div>
-      <div className="cs-stub-desc">{info.desc}</div>
+      {/* Overlays */}
+      {paletteOpen && (
+        <CommandPalette
+          onClose={() => setPaletteOpen(false)}
+          onNavigate={handleNavigate}
+        />
+      )}
+      {shortcutsOpen && (
+        <KeyboardShortcutsModal onClose={() => setShortcutsOpen(false)} />
+      )}
     </div>
   );
 }

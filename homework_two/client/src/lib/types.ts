@@ -76,6 +76,34 @@ export interface WorkItemDraft {
   tags: string[];
 }
 
+// ── Search ───────────────────────────────────────────────────────────────────
+
+export type SearchResultType = 'workitem' | 'pr' | 'code' | 'email' | 'teams' | 'calendar';
+export type PanelTarget = 'workitems' | 'repos' | 'email' | 'calendar' | 'teams';
+
+export interface SearchResult {
+  type: SearchResultType;
+  title: string;
+  subtitle: string;
+  panelTarget: PanelTarget;
+  url: string | null;
+  id: string | null;
+}
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+
+export type NotificationType = 'mention' | 'pr_review' | 'work_item' | 'email' | 'meeting';
+
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  panelTarget: PanelTarget;
+  timestamp: string;
+  isRead: boolean;
+}
+
 // ── Repos & PRs ──────────────────────────────────────────────────────────────
 
 export type RepoPlatform = 'ado' | 'github';

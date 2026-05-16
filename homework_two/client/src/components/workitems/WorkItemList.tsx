@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { WorkItemCard } from './WorkItemCard';
 import { WorkItemBuilder } from './WorkItemBuilder';
 import { useWorkItems } from '../../hooks/useWorkItems';
@@ -7,14 +7,19 @@ import '../../styles/workitems.css';
 
 interface Props {
   profile: UserProfile;
+  newItemTrigger?: number;
 }
 
-export function WorkItemList({ profile }: Props) {
+export function WorkItemList({ profile, newItemTrigger }: Props) {
   const { items, loadState, load, updateState, addComment, createWorkItem, getDraft } = useWorkItems(
     profile.devOpsOrganization,
     profile.devOpsProject
   );
   const [builderOpen, setBuilderOpen] = useState(false);
+
+  useEffect(() => {
+    if (newItemTrigger && newItemTrigger > 0) setBuilderOpen(true);
+  }, [newItemTrigger]);
   const [credDismissed, setCredDismissed] = useState(false);
 
   const notConfigured = !profile.devOpsOrganization || !profile.devOpsProject;
