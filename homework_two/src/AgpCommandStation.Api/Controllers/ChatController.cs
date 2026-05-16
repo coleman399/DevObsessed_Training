@@ -136,5 +136,103 @@ public class ChatController : ControllerBase
         }
     }
 
+    // POST /api/chat/email-draft — draft a reply or new email body
+    [HttpPost("email-draft")]
+    public async Task<IActionResult> EmailDraft([FromBody] EmailDraftRequest request, CancellationToken ct)
+    {
+        var userId = UserId();
+        if (userId is null) return Unauthorized();
+
+        const string system = """
+            You are a professional email writer. Return ONLY a valid JSON object, no markdown.
+            Schema: { "subject": "...", "body": "..." }
+            Rules:
+            - body: plain HTML paragraphs (<p>...</p>), professional tone
+            - subject: keep or improve the existing subject, prefix with "Re: " if replying
+            - be concise and direct
+            """;
+
+        var userPrompt = string.IsNullOrWhiteSpace(request.EmailBody)
+            ? $"Write a new email. Subject: {request.EmailSubject}"
+            : $"Draft a reply to this email.\nSubject: {request.EmailSubject}\n\nEmail body:\n{request.EmailBody}";
+
+        try
+        {
+            var raw = await _chat.GetStructuredJsonAsync(userId, system, userPrompt, ct);
+            var json = Regex.Replace(raw.Trim(), @"^```[a-z]*\n?|```$", "", RegexOptions.Multiline).Trim();
+            var draft = JsonSerializer.Deserialize<EmailDraftResponse>(json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            return Ok(draft);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return StatusCode(502, new { error = "email_draft_failed", message = ex.Message });
+        }
+    }
+
+    // POST /api/chat/event-draft — draft a calendar event
+    [HttpPost("event-draft")]
+    public async Task<IActionResult> EventDraft([FromBody] EventDraftRequest request, CancellationToken ct)
+    {
+        var userId = UserId();
+        if (userId is null) return Unauthorized();
+
+        var today = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd");
+        var system = $$"""
+            You are a calendar assistant. Today is {{today}}. Return ONLY a valid JSON object, no markdown.
+            Schema: {"title": "...", "startTime": "YYYY-MM-DDTHH:MM:00", "endTime": "YYYY-MM-DDTHH:MM:00", "attendees": ["email@example.com"], "description": "..."}
+            Rules:
+            - Use ISO 8601 UTC format for startTime/endTime
+            - Default duration: 1 hour if not specified
+            - If no date mentioned, schedule for tomorrow at 10:00 AM UTC
+            - attendees: array of email addresses (empty array if none mentioned)
+            - description: 1-2 sentences summarizing the meeting
+            """;
+
+        try
+        {
+            var raw = await _chat.GetStructuredJsonAsync(userId, system, request.Description, ct);
+            var json = Regex.Replace(raw.Trim(), @"^```[a-z]*\n?|```$", "", RegexOptions.Multiline).Trim();
+            var draft = JsonSerializer.Deserialize<EventDraftResponse>(json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            return Ok(draft);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return StatusCode(502, new { error = "event_draft_failed", message = ex.Message });
+        }
+    }
+
+    // POST /api/chat/message-polish — polish a Teams message
+    [HttpPost("message-polish")]
+    public async Task<IActionResult> MessagePolish([FromBody] MessagePolishRequest request, CancellationToken ct)
+    {
+        var userId = UserId();
+        if (userId is null) return Unauthorized();
+
+        const string system = """
+            You are a professional communicator. Return ONLY a JSON object, no markdown.
+            Schema: { "polishedMessage": "..." }
+            Rules:
+            - Improve clarity, tone, and grammar
+            - Keep the same intent and approximate length
+            - Professional but friendly, suitable for a Teams channel
+            - No exclamation marks
+            """;
+
+        try
+        {
+            var raw = await _chat.GetStructuredJsonAsync(userId, system, $"Polish this message:\n{request.Message}", ct);
+            var json = Regex.Replace(raw.Trim(), @"^```[a-z]*\n?|```$", "", RegexOptions.Multiline).Trim();
+            var result = JsonSerializer.Deserialize<MessagePolishResponse>(json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            return Ok(result);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return StatusCode(502, new { error = "polish_failed", message = ex.Message });
+        }
+    }
+
     private string? UserId() => User.FindFirstValue(JwtRegisteredClaimNames.Sub);
 }

@@ -3,6 +3,9 @@ import { ChatInput } from '../chat/ChatInput';
 import { MessageList } from '../chat/MessageList';
 import { PinnedFilesBar } from '../chat/PinnedFilesBar';
 import { WorkItemList } from '../workitems/WorkItemList';
+import { MailPanel } from '../outlook/MailPanel';
+import { CalendarPanel } from '../calendar/CalendarPanel';
+import { TeamsPanel } from '../teams/TeamsPanel';
 import { useAuth } from '../../hooks/useAuth';
 import { useChat } from '../../hooks/useChat';
 import '../../styles/command.css';
@@ -127,6 +130,12 @@ export function CommandStation({ onOpenProfile }: Props) {
           <div className="cs-tab-content" role="tabpanel">
             {activeTab === 'workitems' && profile ? (
               <WorkItemList profile={profile} />
+            ) : activeTab === 'email' ? (
+              <MailPanel />
+            ) : activeTab === 'calendar' ? (
+              <CalendarPanel />
+            ) : activeTab === 'teams' && profile ? (
+              <TeamsPanel profile={profile} canPost={false} />
             ) : (
               <TabStub tab={activeTab} />
             )}

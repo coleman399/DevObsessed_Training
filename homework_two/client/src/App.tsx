@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { ChatProvider } from './hooks/useChat';
+import { ToastProvider } from './hooks/useToast';
 import { SignInPage } from './components/auth/SignInPage';
 import { OnboardingModal } from './components/auth/OnboardingModal';
 import { CommandStation } from './components/command/CommandStation';
@@ -65,7 +66,9 @@ function AppInner() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppInner />
+      <ToastProvider>
+        <AppInner />
+      </ToastProvider>
     </AuthProvider>
   );
 }

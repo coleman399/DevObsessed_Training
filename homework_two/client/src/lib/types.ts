@@ -76,6 +76,71 @@ export interface WorkItemDraft {
   tags: string[];
 }
 
+// ── Mail ─────────────────────────────────────────────────────────────────────
+
+export interface MailMessage {
+  id: string;
+  subject: string;
+  fromName: string;
+  fromEmail: string;
+  receivedAt: string;
+  bodyPreview: string;
+  isRead: boolean;
+}
+
+export interface MailMessageDetail extends MailMessage {
+  body: string;
+}
+
+export interface EmailDraft {
+  subject: string;
+  body: string;
+}
+
+// ── Calendar ─────────────────────────────────────────────────────────────────
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  isAllDay: boolean;
+  joinUrl: string | null;
+  location: string | null;
+  attendees: string[] | null;
+}
+
+export interface EventDraft {
+  title: string;
+  startTime: string;
+  endTime: string;
+  attendees: string[];
+  description: string;
+}
+
+// ── Teams ─────────────────────────────────────────────────────────────────────
+
+export interface TeamsChat {
+  id: string;
+  topic: string;
+  lastMessagePreview: string;
+  lastMessageAt: string;
+}
+
+export interface ChannelMessage {
+  id: string;
+  sender: string;
+  sentAt: string;
+  content: string;
+}
+
+export interface TeamsChannel {
+  teamId: string;
+  teamName: string;
+  channelId: string;
+  channelName: string;
+}
+
 export class ApiError extends Error {
   readonly status: number;
   readonly body: unknown;

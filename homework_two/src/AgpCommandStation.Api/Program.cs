@@ -81,6 +81,12 @@ builder.Services.AddHttpClient("devops", client =>
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 
+// Named HTTP client for Graph proxy
+builder.Services.AddHttpClient("graph", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
 // CORS
 const string SpaCorsPolicy = "spa";
 builder.Services.AddCors(opts =>
